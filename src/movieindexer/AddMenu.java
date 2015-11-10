@@ -17,13 +17,19 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import java.util.ArrayList;
 import java.util.Scanner;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.ChoiceBox;
+import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -42,40 +48,169 @@ import org.json.JSONObject;
 
 public class AddMenu extends VBox {
 
-    FlowPane fp;
     String id;
     boolean local;
-    TextField title, orderTitle;
+
+    TextField title, orderTitle, idField, listField;
     Text year, director, score, plot;
     ImageView imgView;
     TextArea genre, actors;
-    Button addButton, remButton;
+
+    Button searchButton, addButton, remButton, cancelButton;
+    Button addButton_list, remButton_list;
+
     TabPane tabs;
-    
+    ChoiceBox choicebox;
+    ObservableList<String> cbOptions;
+    ArrayList<FlowPane> fp;
+
     public AddMenu(TabPane t) {
         super();
-        this.tabs=t;
+        this.tabs = t;
+        this.fp = new ArrayList();
+
         this.setPadding(new Insets(20, 20, 20, 20));
+        this.getChildren().add(createSearchGrid());
+        this.getChildren().add(createInfoGrid());
+        local = false;
 
-        GridPane searchGrid = new GridPane();
-        searchGrid.setHgap(10);
-        searchGrid.setVgap(10);
-        searchGrid.setPadding(new Insets(10, 10, 10, 10));
+        configureSearchButton();
+        configureAddButton();
+        configureRemButton();
+        configureCancelButton();
+        configureListButtons(this);
+    }
 
-        // Title in column 1, row 1
-        Text category = new Text("ID:");
-        category.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        searchGrid.add(category, 0, 0);
+    private void addNewTab(String t, AddMenu am) {
+        if (!JsonManager.createEmptyJson(t)) {
+            return;
+        }
 
-        // Title in column 2, row 1
-        TextField idField = new TextField();
-        searchGrid.add(idField, 1, 0);
+        cbOptions.add(t);
 
-        Button searchButton = new Button("Search");
-        searchGrid.add(searchButton, 2, 0);
+        Tab newTab = new Tab();
+        newTab.setText(t);
+        ImdbList ml = new ImdbList(tabs, am, t);
+        newTab.setContent(ml);
+        //mll.add(ml);
+        tabs.getTabs().add(newTab);
+    }
 
-        this.getChildren().add(searchGrid);
+    public void updateList() {
+        //tabNames = new ArrayList();
+        for (Tab tab : tabs.getTabs()) {
+            cbOptions.add(tab.getText());
+        }
 
+        if (cbOptions.size() == 0) {
+            addNewTab("Movies", this);
+        }
+        //System.out.println("lol "+tabNames.size()+"   "+tabs);
+        //choicebox = new ChoiceBox(FXCollections.observableArrayList(tabNames));
+
+        choicebox.getSelectionModel().select(0);
+
+        if (cbOptions.size() == 1) {
+            remButton_list.setDisable(true);
+        }
+    }
+
+    private void removeFromFlowpane(String id, FlowPane fp) {
+        int max = fp.getChildren().size();
+        for (int i = 0; i < max; i++) {
+            if (((Text) ((VBox) fp.getChildren().get(i)).getChildren().get(2)).getText().equals(id)) {
+                fp.getChildren().remove(i);
+                break;
+            }
+        }
+    }
+
+    private void insertInFlowpane(int pos, String title, String year, String id1, String listName, FlowPane fp) {
+        Text title2 = new Text(title + " (" + year + ")");
+        title2.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        title2.setWrappingWidth(200);
+        title2.textAlignmentProperty().set(TextAlignment.CENTER);
+
+        Image img = new Image("file:" + id + ".jpg");
+        ImageView imgView2 = new ImageView(img);
+        imgView2.setFitWidth(200);
+        imgView2.setFitHeight(300);
+        imgView2.setPreserveRatio(true);
+
+        Text idRef = new Text(id1);
+        idRef.setVisible(false);
+
+        fp.getChildren().add(pos, configureVBox(title2, imgView2, idRef, this, listName));
+    }
+
+    public VBox configureVBox(Text title, ImageView imgView, Text idRef, AddMenu am, String name) {
+        VBox vbox = new VBox();
+        vbox.setPrefSize(200, 328);
+        vbox.setAlignment(Pos.BOTTOM_CENTER);
+        vbox.getChildren().add(title);
+        vbox.getChildren().add(imgView);
+        vbox.getChildren().add(idRef);
+
+        vbox.addEventHandler(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {
+                String id = ((Text) vbox.getChildren().get(2)).getText();
+                event.consume();
+                tabs.getSelectionModel().select(am.getIndexByName("Add"));
+                am.id = id;
+                am.searchLocally(name);
+                am.addButton.setVisible(true);
+                am.addButton.setText("Update");
+                am.remButton.setVisible(true);
+                am.choicebox.getSelectionModel().select(am.cbOptions.indexOf(name));
+            }
+        });
+        return vbox;
+    }
+
+    public boolean searchLocally(String fName) {
+        JSONArray list;
+
+        try (Scanner fin = new Scanner(new File(fName + ".json")).useDelimiter("\\Z")) {
+            String content = fin.next();
+            list = new JSONObject(content).getJSONArray("movies");
+        } catch (Exception ex) {
+            System.out.println(".json file not found.");
+            list = new JSONArray();
+        }
+
+        for (int i = 0; i < list.length(); i++) {
+            JSONObject curr = list.getJSONObject(i);
+            if (curr.getString("id").equals(id)) {
+                title.setText(curr.getString("title"));
+                year.setText(curr.getString("year"));
+                director.setText(curr.getString("director"));
+                genre.setText(curr.getString("genre"));
+                actors.setText(curr.getString("actors"));
+                score.setText(curr.getString("score"));
+                orderTitle.setText(curr.getString("orderTitle"));
+                plot.setText("ID: " + id);
+                imgView.setImage(new Image("file:" + id + ".jpg"));
+                local = true;
+                return true;
+            }
+        }
+        local = false;
+        return false;
+    }
+
+    public int getIndexByName(String n) {
+        ObservableList<Tab> l = tabs.getTabs();
+        for (int i = 0; i < l.size(); i++) {
+            if (l.get(i).getText().equals(n)) {
+                return i;
+            }
+        }
+        return l.size() - 1;
+
+    }
+
+    public final GridPane createInfoGrid() {
         GridPane infoGrid = new GridPane();
         infoGrid.setHgap(10);
         infoGrid.setVgap(10);
@@ -102,7 +237,7 @@ public class AddMenu extends VBox {
 
         plot = new Text();
         plot.setWrappingWidth(300);
-        
+
         infoGrid.add(plot, 0, 3);
 
         imgView = new ImageView();
@@ -116,21 +251,65 @@ public class AddMenu extends VBox {
         addButton = new Button("Add");
         addButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
         addButton.setVisible(false);
-        infoGrid.add(addButton, 1, 4);
+        infoGrid.add(addButton, 0, 4);
 
         remButton = new Button("Remove");
         remButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
         remButton.setVisible(false);
-        infoGrid.add(remButton, 1, 5);
+        infoGrid.add(remButton, 0, 5);
 
-        local = false;
-        this.getChildren().add(infoGrid);
+        cancelButton = new Button("Cancel");
+        cancelButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        cancelButton.setVisible(true);
+        infoGrid.add(cancelButton, 0, 6);
 
+        cbOptions = FXCollections.observableArrayList();
+        choicebox = new ChoiceBox(cbOptions);
+        infoGrid.add(choicebox, 2, 4);
+
+        remButton_list = new Button("Remove List");
+        remButton_list.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        remButton_list.setVisible(true);
+        infoGrid.add(remButton_list, 2, 5);
+
+        listField = new TextField();
+        infoGrid.add(listField, 1, 4);
+
+        addButton_list = new Button("Add List");
+        addButton_list.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        addButton_list.setVisible(true);
+        infoGrid.add(addButton_list, 1, 5);
+
+        return infoGrid;
+    }
+
+    public final GridPane createSearchGrid() {
+        GridPane searchGrid = new GridPane();
+        searchGrid.setHgap(10);
+        searchGrid.setVgap(10);
+        searchGrid.setPadding(new Insets(10, 10, 10, 10));
+
+        // Title in column 1, row 1
+        Text category = new Text("ID:");
+        category.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        searchGrid.add(category, 0, 0);
+
+        // Title in column 2, row 1
+        idField = new TextField();
+        searchGrid.add(idField, 1, 0);
+
+        searchButton = new Button("Search");
+        searchGrid.add(searchButton, 2, 0);
+
+        return searchGrid;
+    }
+
+    public final void configureSearchButton() {
         searchButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
                 id = idField.getText();
-                if (searchLocally()) {
+                if (searchLocally(choicebox.getSelectionModel().getSelectedItem().toString())) {
                     addButton.setVisible(true);
                     addButton.setText("Update");
                     remButton.setVisible(true);
@@ -149,7 +328,10 @@ public class AddMenu extends VBox {
                     } else {
                         orderTitle.setText(obj.getString("Title").toLowerCase());
                     }
-                    year.setText(obj.getString("Year"));
+                    String tempYear = obj.getString("Year").replaceAll("\\D+","");;
+                    if(tempYear.length()>4)
+                        tempYear=tempYear.substring(0, 4)+"-"+tempYear.substring(tempYear.length()-4, tempYear.length());
+                    year.setText(tempYear);
                     if (obj.getString("imdbRating").equals("N/A") || obj.getString("Metascore").equals("N/A")) {
                         score.setText("N/A\nN/A");
                     } else {
@@ -199,19 +381,13 @@ public class AddMenu extends VBox {
                 }
             }
         });
+    }
 
+    public final void configureAddButton() {
         addButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                JSONArray list;
-
-                try (Scanner fin = new Scanner(new File("movies.json")).useDelimiter("\\Z")) {
-                    String content = fin.next();
-                    list = new JSONObject(content).getJSONArray("movies");
-                } catch (Exception ex) {
-                    System.out.println(".json file not found.");
-                    list = new JSONArray();
-                }
+                JSONArray list = JsonManager.readJson(choicebox.getSelectionModel().getSelectedItem().toString());
 
                 JSONObject curr = new JSONObject();
                 curr.put("title", title.getText().replaceAll("\"", ""));
@@ -248,31 +424,25 @@ public class AddMenu extends VBox {
                     }
                 }
                 list.put(i, curr);
-                JSONObject mainObj = new JSONObject();
-                mainObj.put("movies", list);
 
-                // Commit to file
-                try (PrintWriter fout = new PrintWriter(new File("movies.json"))) {
-                    mainObj.write(fout);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
+                JsonManager.writeJson(choicebox.getSelectionModel().getSelectedItem().toString(), list);
 
                 // Remove from pane (if local)
                 if (local) {
-                    removeFromFlowpane(id);
+                    removeFromFlowpane(id, fp.get(choicebox.getSelectionModel().getSelectedIndex()));
                 }
 
                 if (!local) {
                     File photo = new File(id + ".jpg");
                     if (photo.exists()) {
-                        photo.delete();
+                        //photo.delete();
+                    } else {
+                        new File("temp.temp").renameTo(photo);
                     }
-                    new File("temp.temp").renameTo(photo);
                 }
-                
+
                 // Add into pane
-                insertInFlowpane(i, title.getText(), year.getText(), id);
+                insertInFlowpane(i, title.getText(), year.getText(), id, choicebox.getSelectionModel().getSelectedItem().toString(), fp.get(choicebox.getSelectionModel().getSelectedIndex()));
 
                 // Reset GUI
                 title.setText("");
@@ -283,28 +453,22 @@ public class AddMenu extends VBox {
                 score.setText("");
                 orderTitle.setText("");
                 plot.setText("");
-                
+
                 id = null;
                 imgView.setImage(null);
                 addButton.setText("Add");
                 addButton.setVisible(false);
                 remButton.setVisible(false);
-                tabs.getSelectionModel().select(0);
+                tabs.getSelectionModel().select(getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString()));
             }
         });
+    }
 
+    public final void configureRemButton() {
         remButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                JSONArray list;
-
-                try (Scanner fin = new Scanner(new File("movies.json")).useDelimiter("\\Z")) {
-                    String content = fin.next();
-                    list = new JSONObject(content).getJSONArray("movies");
-                } catch (Exception ex) {
-                    System.out.println(".json file not found.");
-                    list = new JSONArray();
-                }
+                JSONArray list = JsonManager.readJson(choicebox.getSelectionModel().getSelectedItem().toString());
 
                 for (int i = 0; i < list.length(); i++) {
                     JSONObject curr = list.getJSONObject(i);
@@ -312,14 +476,8 @@ public class AddMenu extends VBox {
                         list.remove(i);
                     }
                 }
-                JSONObject mainObj = new JSONObject();
-                mainObj.put("movies", list);
 
-                try (PrintWriter fout = new PrintWriter(new File("movies.json"))) {
-                    mainObj.write(fout);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
+                JsonManager.writeJson(choicebox.getSelectionModel().getSelectedItem().toString(), list);
 
                 title.setText("");
                 year.setText("");
@@ -329,9 +487,18 @@ public class AddMenu extends VBox {
                 score.setText("");
                 orderTitle.setText("");
                 plot.setText("");
-                File photo = new File(id + ".jpg");
-                if (photo.exists()) {
-                    photo.delete();
+
+                int counter = 0;
+                for (String tab : cbOptions) {
+                    if (searchLocally(tab)) {
+                        counter++;
+                    }
+                }
+                if (counter == 0) {
+                    File photo = new File(id + ".jpg");
+                    if (photo.exists()) {
+                        photo.delete();
+                    }
                 }
 
                 imgView.setImage(null);
@@ -339,91 +506,79 @@ public class AddMenu extends VBox {
                 addButton.setVisible(false);
                 remButton.setVisible(false);
 
-                removeFromFlowpane(id);
+                removeFromFlowpane(id, fp.get(choicebox.getSelectionModel().getSelectedIndex()));
 
                 id = null;
-                tabs.getSelectionModel().select(0);
+                tabs.getSelectionModel().select(getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString()));
             }
         });
     }
 
-    private void removeFromFlowpane(String id) {
-        int max = fp.getChildren().size();
-        for (int i = 0; i < max; i++) {
-            if (((Text) ((VBox) fp.getChildren().get(i)).getChildren().get(2)).getText().equals(id)) {
-                fp.getChildren().remove(i);
-                break;
-            }
-        }
-    }
-
-    private void insertInFlowpane(int pos, String title, String year, String id1) {
-        Text title2 = new Text(title+" ("+year+")");
-        title2.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        title2.setWrappingWidth(200);
-        title2.textAlignmentProperty().set(TextAlignment.CENTER);
-
-        Image img = new Image("file:" + id + ".jpg");
-        ImageView imgView = new ImageView(img);
-        imgView.setFitWidth(200);
-        imgView.setFitHeight(300);
-        imgView.setPreserveRatio(true);
-
-        Text idRef = new Text(id1);
-        idRef.setVisible(false);
-
-        VBox vbox = new VBox();
-        vbox.setPrefSize(200, 328);
-        vbox.setAlignment(Pos.BOTTOM_CENTER);
-        vbox.getChildren().add(title2);
-        vbox.getChildren().add(imgView);
-        vbox.getChildren().add(idRef);
-
-        vbox.addEventHandler(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
+    public final void configureCancelButton() {
+        cancelButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
-            public void handle(MouseEvent event) {
-                String id2 = ((Text) vbox.getChildren().get(2)).getText();
-                event.consume();
-                tabs.getSelectionModel().select(1);
-                id = id2;
-                searchLocally();
-                addButton.setVisible(true);
-                addButton.setText("Update");
-                remButton.setVisible(true);
+            public void handle(ActionEvent event) {
+                title.setText("");
+                year.setText("");
+                director.setText("");
+                genre.setText("");
+                actors.setText("");
+                score.setText("");
+                orderTitle.setText("");
+                plot.setText("");
+
+                imgView.setImage(null);
+                addButton.setText("Add");
+                addButton.setVisible(false);
+                remButton.setVisible(false);
+
+                id = null;
+                tabs.getSelectionModel().select(getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString()));
+            }
+        });
+    }
+
+    public final void configureListButtons(AddMenu am) {
+        addButton_list.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                addNewTab(listField.getText(), am);
             }
         });
 
-        fp.getChildren().add(pos, vbox);
-    }
+        remButton_list.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                JsonManager.removeJson(choicebox.getSelectionModel().getSelectedItem().toString());
 
-    public boolean searchLocally() {
-        JSONArray list;
+                tabs.getTabs().remove(getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString()));
+                cbOptions.remove(choicebox.getSelectionModel().getSelectedItem().toString());
+                choicebox.getSelectionModel().select(0);
 
-        try (Scanner fin = new Scanner(new File("movies.json")).useDelimiter("\\Z")) {
-            String content = fin.next();
-            list = new JSONObject(content).getJSONArray("movies");
-        } catch (Exception ex) {
-            System.out.println(".json file not found.");
-            list = new JSONArray();
-        }
-
-        for (int i = 0; i < list.length(); i++) {
-            JSONObject curr = list.getJSONObject(i);
-            if (curr.getString("id").equals(id)) {
-                title.setText(curr.getString("title"));
-                year.setText(curr.getString("year"));
-                director.setText(curr.getString("director"));
-                genre.setText(curr.getString("genre"));
-                actors.setText(curr.getString("actors"));
-                score.setText(curr.getString("score"));
-                orderTitle.setText(curr.getString("orderTitle"));
-                plot.setText("ID: " + id);
-                imgView.setImage(new Image("file:" + id + ".jpg"));
-                local = true;
-                return true;
+                if (cbOptions.size() == 1) {
+                    remButton_list.setDisable(true);
+                }
             }
-        }
-        local = false;
-        return false;
+        });
+
+        choicebox.getSelectionModel().selectedIndexProperty().addListener(
+                new ChangeListener<Number>() {
+                    @Override
+                    public void changed(ObservableValue ov, Number val, Number newVal) {
+                        if (addButton.visibleProperty().get()) {
+                            if (searchLocally(cbOptions.get(newVal.intValue()))) {
+                                addButton.setVisible(true);
+                                addButton.setText("Update");
+                                remButton.setVisible(true);
+                                local = true;
+                            } else {
+                                addButton.setVisible(true);
+                                addButton.setText("Add");
+                                remButton.setVisible(false);
+                                local = false;
+                            }
+                        }
+                    }
+                });
     }
 }

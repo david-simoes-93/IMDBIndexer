@@ -30,21 +30,23 @@ import org.json.JSONObject;
  *
  * @author asus
  */
-public class MovieList extends ScrollPane{
+public class ImdbList extends ScrollPane{
     FlowPane flow;
     TabPane tabs;
-    AddMenu am;
+    //AddMenu am;
+    String name;
     
-    public MovieList(TabPane t, AddMenu am){
+    public ImdbList(TabPane t, AddMenu am, String name){
         super();
         this.tabs=t;
-        this.am=am;
+        //this.am=am;
+        this.name=name;
         
         this.flow = new FlowPane();
         flow.setVgap(4);
         flow.setHgap(4);
         flow.setAlignment(Pos.TOP_CENTER);
-        am.fp=flow;
+        am.fp.add(flow);
 
         Screen screen = Screen.getPrimary();
         Rectangle2D bounds = screen.getVisualBounds();
@@ -52,7 +54,7 @@ public class MovieList extends ScrollPane{
 
         JSONArray list;
 
-        try (Scanner fin = new Scanner(new File("movies.json")).useDelimiter("\\Z")) {
+        try (Scanner fin = new Scanner(new File(name+".json")).useDelimiter("\\Z")) {
             String content = fin.next();
             list = new JSONObject(content).getJSONArray("movies");
 
@@ -71,7 +73,7 @@ public class MovieList extends ScrollPane{
                 Text idRef = new Text(list.getJSONObject(i).getString("id"));
                 idRef.setVisible(false);
                 
-                VBox vbox = new VBox();
+                /*VBox vbox = new VBox();
                 vbox.setPrefSize(200, 328);
                 vbox.setAlignment(Pos.BOTTOM_CENTER);
                 vbox.getChildren().add(title);
@@ -83,16 +85,17 @@ public class MovieList extends ScrollPane{
                     public void handle(MouseEvent event) {
                         String id = ((Text)vbox.getChildren().get(2)).getText();
                         event.consume();
-                        tabs.getSelectionModel().select(1);
+                        tabs.getSelectionModel().select(am.getIndexByName("Add"));
                         am.id=id;
-                        am.searchLocally();
+                        am.searchLocally(name);
                         am.addButton.setVisible(true);
                         am.addButton.setText("Update");
                         am.remButton.setVisible(true);
+                        am.choicebox.getSelectionModel().select(am.cbOptions.indexOf(name));
                     }
-                });
+                });*/
 
-                flow.getChildren().add(vbox);
+                flow.getChildren().add(am.configureVBox(title, imgView, idRef, am, name));
             }
         } catch (Exception ex) {
             System.out.println(".json file not found.");

@@ -1,5 +1,7 @@
 package movieindexer;
 
+import java.io.File;
+import java.util.ArrayList;
 import javafx.application.Application;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -12,32 +14,43 @@ import javafx.stage.Stage;
 public class MovieIndexer extends Application {
 
     private TabPane tabs;
-    private MovieList ml;
+    private ArrayList<ImdbList> mll;
     private AddMenu am;
     private int retardedCounter = 0;
 
     @Override
     public void start(Stage primaryStage) {
         tabs = new TabPane();
-        
-        // Add tab
+        mll=new ArrayList();
+
+         // Add tab
         Tab tabAlign = new Tab();
         tabAlign.setText("Add");
         am = new AddMenu(tabs);
         tabAlign.setContent(am);
         
-        // Movies tab
-        Tab tabMovies = new Tab();
-        tabMovies.setText("List");
-        ml = new MovieList(tabs, am);
-        tabMovies.setContent(ml);
+        File[] listOfFiles = new File(".").listFiles();
+        ArrayList<Tab> jsons = new ArrayList();
+        for (File f : listOfFiles) {
+            String fileName = f.getName();
+            if (fileName.endsWith(".json")) {
+                Tab tabMovies = new Tab();
+                String realName = fileName.substring(0, fileName.length() - 5);
+                tabMovies.setText(realName);
+                ImdbList ml = new ImdbList(tabs, am, realName);
+                tabMovies.setContent(ml);
+                jsons.add(tabMovies);
+                mll.add(ml);
+            }
+        }
 
         // Tabs
-        tabs.getTabs().addAll(tabMovies, tabAlign);
+        tabs.getTabs().addAll(jsons);
+        am.updateList();
+        tabs.getTabs().add(tabAlign);
+
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         Scene scene = new Scene(tabs);
-        
-        
 
         // Final setup
         primaryStage.setScene(scene);
@@ -50,7 +63,9 @@ public class MovieIndexer extends Application {
             @Override
             public void changed(ObservableValue<? extends Number> ov, Number t, Number t1) {
                 if (retardedCounter != 1 && retardedCounter != 2) {
-                    ml.flow.setPrefWrapLength(tabs.getWidth() - 24);
+                    for (ImdbList ml : mll) {
+                        ml.flow.setPrefWrapLength(tabs.getWidth() - 24);
+                    }
                 }
                 retardedCounter++;
             }
