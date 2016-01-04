@@ -5,6 +5,7 @@
  */
 package movieindexer;
 
+import java.awt.Desktop;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -12,8 +13,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
+import java.io.StringReader;
+import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -43,8 +47,13 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
+import javafx.scene.web.WebView;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
 
 public class AddMenu extends VBox {
 
@@ -58,6 +67,10 @@ public class AddMenu extends VBox {
 
     Button searchButton, addButton, remButton, cancelButton;
     Button addButton_list, remButton_list;
+    Button imdbLink, torrentLink;
+    String magnetLink = "magnet:?xt=urn:btih:C28B3973F693BAE99C1B0C13A137A051EEF8D9D5&dn=star+wars+the+force+awakens+2015+hd+cam+xvid+hqmic+ac3+cpg+avi&tr=udp%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=udp%3A%2F%2Fglotorrents.pw%3A6969%2Fannounce";
+
+    WebView webview;
 
     TabPane tabs;
     ChoiceBox choicebox;
@@ -70,8 +83,11 @@ public class AddMenu extends VBox {
         this.fp = new ArrayList();
 
         this.setPadding(new Insets(20, 20, 20, 20));
-        this.getChildren().add(createSearchGrid());
-        this.getChildren().add(createInfoGrid());
+        GridPane mainGrid = new GridPane();
+        mainGrid.add(createSearchGrid(), 0, 0);
+        mainGrid.add(createInfoGrid(), 0, 1);
+        mainGrid.add(getTrailerTorrentTab(), 1, 1);
+        this.getChildren().add(mainGrid);
         local = false;
 
         configureSearchButton();
@@ -79,6 +95,63 @@ public class AddMenu extends VBox {
         configureRemButton();
         configureCancelButton();
         configureListButtons(this);
+        configureIMDBButton();
+    }
+
+    private void configureIMDBButton() {
+        imdbLink.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
+                if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
+                    try {
+                        desktop.browse(new URI("http://www.imdb.com/title/" + id + "/"));
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+
+            }
+        });
+
+        torrentLink.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
+                if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
+                    try {
+                        desktop.browse(new URI(magnetLink));
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+
+            }
+        });
+    }
+
+    private GridPane getTrailerTorrentTab() {
+        GridPane infoGrid = new GridPane();
+        infoGrid.setHgap(10);
+        infoGrid.setVgap(10);
+        infoGrid.setPadding(new Insets(10, 10, 10, 10));
+
+        imdbLink = new Button("IMDB");
+        imdbLink.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        imdbLink.setVisible(false);
+        infoGrid.add(imdbLink, 0, 0);
+
+        webview = new WebView();
+        webview.setPrefSize(512, 312);
+        infoGrid.add(webview, 0, 1);
+        webview.setVisible(false);
+
+        torrentLink = new Button("Torrent");
+        torrentLink.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        torrentLink.setVisible(false);
+        infoGrid.add(torrentLink, 0, 2);
+
+        return infoGrid;
     }
 
     private void addNewTab(String t, AddMenu am) {
@@ -328,9 +401,10 @@ public class AddMenu extends VBox {
                     } else {
                         orderTitle.setText(obj.getString("Title").toLowerCase());
                     }
-                    String tempYear = obj.getString("Year").replaceAll("\\D+","");;
-                    if(tempYear.length()>4)
-                        tempYear=tempYear.substring(0, 4)+"-"+tempYear.substring(tempYear.length()-4, tempYear.length());
+                    String tempYear = obj.getString("Year").replaceAll("\\D+", "");;
+                    if (tempYear.length() > 4) {
+                        tempYear = tempYear.substring(0, 4) + "-" + tempYear.substring(tempYear.length() - 4, tempYear.length());
+                    }
                     year.setText(tempYear);
                     if (obj.getString("imdbRating").equals("N/A") || obj.getString("Metascore").equals("N/A")) {
                         score.setText("N/A\nN/A");
@@ -374,13 +448,83 @@ public class AddMenu extends VBox {
                     addButton.setText("Add");
                     addButton.setVisible(true);
                     remButton.setVisible(false);
+
+                    imdbLink.setVisible(true);
+                    torrentLink.setVisible(true);
+                    webview.setVisible(true);
+                    webview.getEngine().load("https://www.youtube.com/embed/" + getYoutubeID(title.getText(), year.getText()));
+                    getMagnetLink(title.getText(), year.getText());
+
                 } else {
+                    imdbLink.setVisible(false);
+                    webview.setVisible(false);
+                    torrentLink.setVisible(false);
                     id = null;
                     addButton.setVisible(false);
                     remButton.setVisible(false);
                 }
             }
         });
+    }
+
+    public void getMagnetLink(String title, String year) {
+        String magnet = "https://kickass.unblocked.pe/usearch/" + year;
+        String[] fields = title.split("[^a-zA-Z\\d\\s:]");
+        for (String str : fields) {
+            try {
+                magnet += URLEncoder.encode(" " + str, "UTF-8");
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return;
+            }
+        }
+        magnet += "/?rss=1";
+
+        String results = Consumer.getHTML(magnet);
+
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder;
+        try {
+            builder = factory.newDocumentBuilder();
+            Document document = builder.parse(new InputSource(new StringReader(results)));
+            System.out.println(document);
+            System.out.println(document.getElementById("channel"));
+            System.out.println(document.getElementById("channel").getElementsByTagName("item"));
+            System.out.println(document.getElementById("channel").getElementsByTagName("item").item(0));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public String getYoutubeID(String title, String year) {
+        String[] fields = title.split("[^a-zA-Z\\d\\s:]");
+
+        String importIO = "https://api.import.io/store/connector/404864f4-0b74-471a-ac9b-b7df70913624/_query?input=webpage/url:https%3A%2F%2Fwww.youtube.com%2Fresults%3Fsearch_query%3Dtrailer%2B" + year;
+        for (String str : fields) {
+            try {
+                importIO += URLEncoder.encode(" " + str, "UTF-8");
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return "";
+            }
+        }
+        importIO += "&&_apikey=4911226d82c84f2f9e06e04bffad812e3ee3dd322ae4d7309f3751ce6913e2da924f27aabd67c1a8d8aee488dc392b80c9de4885cd3d16c6d630151818526d3b5b50b3d57bcf816bfa015eeeb4989a1f";
+        System.out.println(importIO);
+
+        String results = Consumer.getHTML(importIO);
+
+        String retVal = "";
+        JSONArray mainObj = new JSONObject(results).getJSONArray("results");
+        if (mainObj.length() > 0) {
+            String[] link = mainObj.getJSONObject(0).getString("uixtile_link").split("v=");
+            retVal = link[link.length - 1];
+        }
+
+        //JSONObject mainObj = new JSONObject();
+        //mainObj.put("youtubeHits", results);
+        //mainObj.get("")
+        //String a = mainObj.get("youtubeHits");
+        return retVal;
     }
 
     public final void configureAddButton() {
@@ -531,6 +675,8 @@ public class AddMenu extends VBox {
                 addButton.setText("Add");
                 addButton.setVisible(false);
                 remButton.setVisible(false);
+                imdbLink.setVisible(false);
+                webview.setVisible(false);
 
                 id = null;
                 tabs.getSelectionModel().select(getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString()));
@@ -581,4 +727,5 @@ public class AddMenu extends VBox {
                     }
                 });
     }
+
 }

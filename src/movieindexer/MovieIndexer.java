@@ -12,14 +12,15 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 public class MovieIndexer extends Application {
-
+    
     private TabPane tabs;
     private ArrayList<ImdbList> mll;
     private AddMenu am;
-    private int retardedCounter = 0;
+    private int retardedCounter = 0; 
 
     @Override
     public void start(Stage primaryStage) {
+        
         tabs = new TabPane();
         mll=new ArrayList();
 
