@@ -36,7 +36,6 @@ public class ImdbList extends ScrollPane{
     public ImdbList(TabPane t, AddMenu am, String name){
         super();
         this.tabs=t;
-        //this.am=am;
         this.name=name;
         
         this.flow = new FlowPane();
@@ -69,28 +68,6 @@ public class ImdbList extends ScrollPane{
                 
                 Text idRef = new Text(list.getJSONObject(i).getString("id"));
                 idRef.setVisible(false);
-                
-                /*VBox vbox = new VBox();
-                vbox.setPrefSize(200, 328);
-                vbox.setAlignment(Pos.BOTTOM_CENTER);
-                vbox.getChildren().add(title);
-                vbox.getChildren().add(imgView);
-                vbox.getChildren().add(idRef);
-                
-                vbox.addEventHandler(MouseEvent.MOUSE_CLICKED, new EventHandler<MouseEvent>() {
-                    @Override
-                    public void handle(MouseEvent event) {
-                        String id = ((Text)vbox.getChildren().get(2)).getText();
-                        event.consume();
-                        tabs.getSelectionModel().select(am.getIndexByName("Add"));
-                        am.id=id;
-                        am.searchLocally(name);
-                        am.addButton.setVisible(true);
-                        am.addButton.setText("Update");
-                        am.remButton.setVisible(true);
-                        am.choicebox.getSelectionModel().select(am.cbOptions.indexOf(name));
-                    }
-                });*/
 
                 flow.getChildren().add(am.configureVBox(title, imgView, idRef, am, name));
             }

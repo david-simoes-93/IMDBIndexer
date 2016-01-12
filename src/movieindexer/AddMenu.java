@@ -5,6 +5,7 @@
  */
 package movieindexer;
 
+import https.Consumer;
 import java.awt.Desktop;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -13,8 +14,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.StringReader;
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -23,6 +22,8 @@ import java.nio.file.Paths;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import java.util.ArrayList;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -31,6 +32,7 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Tab;
@@ -48,12 +50,8 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.web.WebView;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.w3c.dom.Document;
-import org.xml.sax.InputSource;
 
 public class AddMenu extends VBox {
 
@@ -189,6 +187,14 @@ public class AddMenu extends VBox {
     }
 
     private void removeFromFlowpane(String id, FlowPane fp) {
+        /*
+        for (Node movie : fp.getChildren()) {
+            for (Node t : ((VBox) movie).getChildren()) {
+                //
+            }
+        }
+                */
+        
         int max = fp.getChildren().size();
         for (int i = 0; i < max; i++) {
             if (((Text) ((VBox) fp.getChildren().get(i)).getChildren().get(2)).getText().equals(id)) {
@@ -198,7 +204,7 @@ public class AddMenu extends VBox {
         }
     }
 
-    private void insertInFlowpane(int pos, String title, String year, String id1, String listName, FlowPane fp) {
+    public void insertInFlowpane(int pos, String title, String year, String id1, String listName, FlowPane fp) {
         Text title2 = new Text(title + " (" + year + ")");
         title2.setFont(Font.font("Arial", FontWeight.BOLD, 14));
         title2.setWrappingWidth(200);
@@ -390,7 +396,7 @@ public class AddMenu extends VBox {
                     return;
                 }
                 local = false;
-                String html = Consumer.getHTML("http://www.omdbapi.com/?i=" + idField.getText() + "&plot=short&r=json");
+                String html = Consumer.getJSON("http://www.omdbapi.com/?i=" + idField.getText() + "&plot=short&r=json");
                 JSONObject obj = new JSONObject(html);
 
                 if (obj.getString("Response").equals("True")) {
@@ -452,6 +458,7 @@ public class AddMenu extends VBox {
                     imdbLink.setVisible(true);
                     torrentLink.setVisible(true);
                     webview.setVisible(true);
+                    webview.getEngine().setUserAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11");
                     webview.getEngine().load("https://www.youtube.com/embed/" + getYoutubeID(title.getText(), year.getText()));
                     getMagnetLink(title.getText(), year.getText());
 
@@ -468,7 +475,7 @@ public class AddMenu extends VBox {
     }
 
     public void getMagnetLink(String title, String year) {
-        String magnet = "https://kickass.unblocked.pe/usearch/" + year;
+        String magnet = "https://kickass.unblocked.li/usearch/" + year;
         String[] fields = title.split("[^a-zA-Z\\d\\s:]");
         for (String str : fields) {
             try {
@@ -479,21 +486,95 @@ public class AddMenu extends VBox {
             }
         }
         magnet += "/?rss=1";
+        magnet = magnet.replaceAll("\\+", "%20");
 
-        String results = Consumer.getHTML(magnet);
-
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder;
-        try {
-            builder = factory.newDocumentBuilder();
-            Document document = builder.parse(new InputSource(new StringReader(results)));
-            System.out.println(document);
-            System.out.println(document.getElementById("channel"));
-            System.out.println(document.getElementById("channel").getElementsByTagName("item"));
-            System.out.println(document.getElementById("channel").getElementsByTagName("item").item(0));
-        } catch (Exception e) {
-            e.printStackTrace();
+        String results = Consumer.getXML(magnet);
+        if (results.equals("<>")) {
+            torrentLink.setVisible(false);
+            return;
         }
+
+        Pattern p = Pattern.compile("<torrent:magnetURI>.*?</torrent:magnetURI>", Pattern.DOTALL);
+        Matcher m = p.matcher(results);
+        if (m.find()) {
+            magnetLink = m.group().replace("<torrent:magnetURI><![CDATA[", "").replace("]]></torrent:magnetURI>", "");
+            System.out.println(magnetLink);
+        } else {
+            torrentLink.setVisible(false);
+        }
+
+    }
+
+    public static void main(String[] args) {
+        String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<rss version=\"2.0\" xmlns:torrent=\"//kastatic.com/xmlns/0.1/\">\n"
+                + "<channel>\n"
+                + "    <title>Torrents by keyword \"2014 Bosch\" - KickassTorrents</title>\n"
+                + "    <link>http://kat.cr/</link>\n"
+                + "    <description>Torrents by keyword \"2014 Bosch\"</description>\n"
+                + "    <item>\n"
+                + "        <title>Connelly, Michael - [Harry Bosch #19] - The Burning Room (2014, Orion, 9780316225939).epub</title>\n"
+                + "        <category>Books - Fiction</category>\n"
+                + "      <author>http://kat.cr/user/ss99/</author>\n"
+                + "        <link>http://kat.cr/connelly-michael-harry-bosch-19-the-burning-room-2014-orion-9780316225939-epub-t11004148.html</link>\n"
+                + "        <guid>http://kat.cr/connelly-michael-harry-bosch-19-the-burning-room-2014-orion-9780316225939-epub-t11004148.html</guid>\n"
+                + "        <pubDate>Mon, 27 Jul 2015 18:38:19 +0000</pubDate>\n"
+                + "        <torrent:contentLength>575226</torrent:contentLength>\n"
+                + "        <torrent:infoHash>CD960E28210817D52E99BF3870D4685792D14A95</torrent:infoHash>\n"
+                + "        <torrent:magnetURI>\n"
+                + "<![CDATA[magnet:?xt=urn:btih:CD960E28210817D52E99BF3870D4685792D14A95&dn=connelly+michael+harry+bosch+19+the+burning+room+2014+orion+9780316225939+epub&tr=udp%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=udp%3A%2F%2Fglotorrents.pw%3A6969%2Fannounce]]>\n"
+                + "</torrent:magnetURI>\n"
+                + "        <torrent:seeds>7</torrent:seeds>\n"
+                + "        <torrent:peers>7</torrent:peers>\n"
+                + "        <torrent:verified>1</torrent:verified>\n"
+                + "        <torrent:fileName>connelly.michael.harry.bosch.19.the.burning.room.2014.orion.9780316225939.epub.torrent</torrent:fileName>\n"
+                + "        <enclosure url=\"https://torcache.net/torrent/CD960E28210817D52E99BF3870D4685792D14A95.torrent?title=[kat.cr]connelly.michael.harry.bosch.19.the.burning.room.2014.orion.9780316225939.epub\" length=\"575226\" type=\"application/x-bittorrent\" />\n"
+                + "    </item>\n"
+                + "    <item>\n"
+                + "        <title>Bosch 2014 S01 VOSTFR Complete HDTV x264-BRN [Seedbox]</title>\n"
+                + "        <category>TV</category>\n"
+                + "      <author>http://kat.cr/user/rosa1917/</author>\n"
+                + "        <link>http://kat.cr/bosch-2014-s01-vostfr-complete-hdtv-x264-brn-seedbox-t10786489.html</link>\n"
+                + "        <guid>http://kat.cr/bosch-2014-s01-vostfr-complete-hdtv-x264-brn-seedbox-t10786489.html</guid>\n"
+                + "        <pubDate>Fri, 12 Jun 2015 18:18:44 +0000</pubDate>\n"
+                + "        <torrent:contentLength>2832938879</torrent:contentLength>\n"
+                + "        <torrent:infoHash>C7455CE61108333E4D381F17BC0F75F2728A17BD</torrent:infoHash>\n"
+                + "        <torrent:magnetURI>\n"
+                + "<![CDATA[magnet:?xt=urn:btih:C7455CE61108333E4D381F17BC0F75F2728A17BD&dn=bosch+2014+s01+vostfr+complete+hdtv+x264+brn+seedbox&tr=udp%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=udp%3A%2F%2Fglotorrents.pw%3A6969%2Fannounce]]>\n"
+                + "</torrent:magnetURI>\n"
+                + "        <torrent:seeds>5</torrent:seeds>\n"
+                + "        <torrent:peers>9</torrent:peers>\n"
+                + "        <torrent:verified>1</torrent:verified>\n"
+                + "        <torrent:fileName>bosch.2014.s01.vostfr.complete.hdtv.x264.brn.seedbox.torrent</torrent:fileName>\n"
+                + "        <enclosure url=\"https://torcache.net/torrent/C7455CE61108333E4D381F17BC0F75F2728A17BD.torrent?title=[kat.cr]bosch.2014.s01.vostfr.complete.hdtv.x264.brn.seedbox\" length=\"2832938879\" type=\"application/x-bittorrent\" />\n"
+                + "    </item>\n"
+                + "    <item>\n"
+                + "        <title>Diesel Engine Management Systems and Components Bosch Professional Automotive Information[WildTurkey00][PDF][2014]-UBTRG</title>\n"
+                + "        <category>Books - Non-fiction</category>\n"
+                + "      <author>http://kat.cr/user/WildTurkey00/</author>\n"
+                + "        <link>http://kat.cr/diesel-engine-management-systems-and-components-bosch-professional-automotive-information-wildturkey00-pdf-2014-ubtrg-t9895560.html</link>\n"
+                + "        <guid>http://kat.cr/diesel-engine-management-systems-and-components-bosch-professional-automotive-information-wildturkey00-pdf-2014-ubtrg-t9895560.html</guid>\n"
+                + "        <pubDate>Wed, 26 Nov 2014 04:37:27 +0000</pubDate>\n"
+                + "        <torrent:contentLength>13616625</torrent:contentLength>\n"
+                + "        <torrent:infoHash>F3F0085F8559F06A3BE3D3BEED4732A8A623A8C5</torrent:infoHash>\n"
+                + "        <torrent:magnetURI>\n"
+                + "<![CDATA[magnet:?xt=urn:btih:F3F0085F8559F06A3BE3D3BEED4732A8A623A8C5&dn=diesel+engine+management+systems+and+components+bosch+professional+automotive+information+wildturkey00+pdf+2014+ubtrg&tr=udp%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=udp%3A%2F%2Fglotorrents.pw%3A6969%2Fannounce]]>\n"
+                + "</torrent:magnetURI>\n"
+                + "        <torrent:seeds>18</torrent:seeds>\n"
+                + "        <torrent:peers>18</torrent:peers>\n"
+                + "        <torrent:verified>1</torrent:verified>\n"
+                + "        <torrent:fileName>diesel.engine.management.systems.and.components.bosch.professional.automotive.information.wildturkey00.pdf.2014.ubtrg.torrent</torrent:fileName>\n"
+                + "        <enclosure url=\"https://torcache.net/torrent/F3F0085F8559F06A3BE3D3BEED4732A8A623A8C5.torrent?title=[kat.cr]diesel.engine.management.systems.and.components.bosch.professional.automotive.information.wildturkey00.pdf.2014.ubtrg\" length=\"13616625\" type=\"application/x-bittorrent\" />\n"
+                + "    </item>\n"
+                + "    </channel>\n"
+                + "</rss>";
+
+        Pattern p = Pattern.compile("<torrent:magnetURI>.*?</torrent:magnetURI>", Pattern.DOTALL);
+        Matcher m = p.matcher(xml);
+        if (m.find()) {
+            System.out.println(m.group().replace("<torrent:magnetURI>\n", "").replace("\n</torrent:magnetURI>", ""));
+        }
+
     }
 
     public String getYoutubeID(String title, String year) {
@@ -511,7 +592,7 @@ public class AddMenu extends VBox {
         importIO += "&&_apikey=4911226d82c84f2f9e06e04bffad812e3ee3dd322ae4d7309f3751ce6913e2da924f27aabd67c1a8d8aee488dc392b80c9de4885cd3d16c6d630151818526d3b5b50b3d57bcf816bfa015eeeb4989a1f";
         System.out.println(importIO);
 
-        String results = Consumer.getHTML(importIO);
+        String results = Consumer.getJSON(importIO);
 
         String retVal = "";
         JSONArray mainObj = new JSONObject(results).getJSONArray("results");
@@ -520,10 +601,6 @@ public class AddMenu extends VBox {
             retVal = link[link.length - 1];
         }
 
-        //JSONObject mainObj = new JSONObject();
-        //mainObj.put("youtubeHits", results);
-        //mainObj.get("")
-        //String a = mainObj.get("youtubeHits");
         return retVal;
     }
 
@@ -603,7 +680,14 @@ public class AddMenu extends VBox {
                 addButton.setText("Add");
                 addButton.setVisible(false);
                 remButton.setVisible(false);
-                tabs.getSelectionModel().select(getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString()));
+
+                int tabIndex = getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString());
+                tabs.getSelectionModel().select(tabIndex);
+
+                int moviesPerRow = (int) (tabs.getWidth() - 24) / (200 + 4);
+                ((ImdbList) tabs.getSelectionModel().getSelectedItem().getContent()).setVvalue(
+                        ((i / moviesPerRow)) / ((Math.ceil(list.length() * 1.0 / moviesPerRow)) - 1));
+
             }
         });
     }
