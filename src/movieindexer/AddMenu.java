@@ -24,15 +24,16 @@ import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Tab;
@@ -66,7 +67,7 @@ public class AddMenu extends VBox {
     Button searchButton, addButton, remButton, cancelButton;
     Button addButton_list, remButton_list;
     Button imdbLink, torrentLink;
-    String magnetLink = "magnet:?xt=urn:btih:C28B3973F693BAE99C1B0C13A137A051EEF8D9D5&dn=star+wars+the+force+awakens+2015+hd+cam+xvid+hqmic+ac3+cpg+avi&tr=udp%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=udp%3A%2F%2Fglotorrents.pw%3A6969%2Fannounce";
+    String magnetLink = "";
 
     WebView webview;
 
@@ -93,10 +94,10 @@ public class AddMenu extends VBox {
         configureRemButton();
         configureCancelButton();
         configureListButtons(this);
-        configureIMDBButton();
+        configureImdbTorrentButtons();
     }
 
-    private void configureIMDBButton() {
+    private void configureImdbTorrentButtons() {
         imdbLink.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
@@ -159,16 +160,11 @@ public class AddMenu extends VBox {
 
         cbOptions.add(t);
 
-        Tab newTab = new Tab();
-        newTab.setText(t);
         ImdbList ml = new ImdbList(tabs, am, t);
-        newTab.setContent(ml);
-        //mll.add(ml);
-        tabs.getTabs().add(newTab);
+        tabs.getTabs().add(ml);
     }
 
     public void updateList() {
-        //tabNames = new ArrayList();
         for (Tab tab : tabs.getTabs()) {
             cbOptions.add(tab.getText());
         }
@@ -176,31 +172,11 @@ public class AddMenu extends VBox {
         if (cbOptions.size() == 0) {
             addNewTab("Movies", this);
         }
-        //System.out.println("lol "+tabNames.size()+"   "+tabs);
-        //choicebox = new ChoiceBox(FXCollections.observableArrayList(tabNames));
 
         choicebox.getSelectionModel().select(0);
 
         if (cbOptions.size() == 1) {
             remButton_list.setDisable(true);
-        }
-    }
-
-    private void removeFromFlowpane(String id, FlowPane fp) {
-        /*
-        for (Node movie : fp.getChildren()) {
-            for (Node t : ((VBox) movie).getChildren()) {
-                //
-            }
-        }
-                */
-        
-        int max = fp.getChildren().size();
-        for (int i = 0; i < max; i++) {
-            if (((Text) ((VBox) fp.getChildren().get(i)).getChildren().get(2)).getText().equals(id)) {
-                fp.getChildren().remove(i);
-                break;
-            }
         }
     }
 
@@ -235,7 +211,8 @@ public class AddMenu extends VBox {
             public void handle(MouseEvent event) {
                 String id = ((Text) vbox.getChildren().get(2)).getText();
                 event.consume();
-                tabs.getSelectionModel().select(am.getIndexByName("Add"));
+                MovieIndexer.selectTab(tabs, "Add");
+
                 am.id = id;
                 am.searchLocally(name);
                 am.addButton.setVisible(true);
@@ -276,17 +253,6 @@ public class AddMenu extends VBox {
         }
         local = false;
         return false;
-    }
-
-    public int getIndexByName(String n) {
-        ObservableList<Tab> l = tabs.getTabs();
-        for (int i = 0; i < l.size(); i++) {
-            if (l.get(i).getText().equals(n)) {
-                return i;
-            }
-        }
-        return l.size() - 1;
-
     }
 
     public final GridPane createInfoGrid() {
@@ -383,310 +349,132 @@ public class AddMenu extends VBox {
         return searchGrid;
     }
 
-    public final void configureSearchButton() {
-        searchButton.setOnAction(new EventHandler<ActionEvent>() {
+    private Thread searchThread() {
+        Task<Integer> task = new Task<Integer>() {
             @Override
-            public void handle(ActionEvent event) {
+            protected Integer call() throws Exception {
+                Platform.runLater(() -> {
+                    searchButton.setDisable(true);
+                    searchButton.setText("Searching...");
+                });
                 id = idField.getText();
                 if (searchLocally(choicebox.getSelectionModel().getSelectedItem().toString())) {
-                    addButton.setVisible(true);
-                    addButton.setText("Update");
-                    remButton.setVisible(true);
-                    local = true;
-                    return;
+                    Platform.runLater(() -> {
+                        addButton.setVisible(true);
+                        addButton.setText("Update");
+                        remButton.setVisible(true);
+                        local = true;
+
+                        searchButton.setDisable(false);
+                        searchButton.setText("Search");
+                    });
+                    return -1;
                 }
                 local = false;
                 String html = Consumer.getJSON("http://www.omdbapi.com/?i=" + idField.getText() + "&plot=short&r=json");
                 JSONObject obj = new JSONObject(html);
 
-                if (obj.getString("Response").equals("True")) {
+                if (!html.equals("{}") && "True".equals(obj.getString("Response"))) {
                     id = obj.getString("imdbID");
-                    title.setText(obj.getString("Title"));
-                    if (obj.getString("Title").toLowerCase().startsWith("the ")) {
-                        orderTitle.setText(obj.getString("Title").substring(4).toLowerCase());
-                    } else {
-                        orderTitle.setText(obj.getString("Title").toLowerCase());
-                    }
-                    String tempYear = obj.getString("Year").replaceAll("\\D+", "");;
-                    if (tempYear.length() > 4) {
-                        tempYear = tempYear.substring(0, 4) + "-" + tempYear.substring(tempYear.length() - 4, tempYear.length());
-                    }
-                    year.setText(tempYear);
-                    if (obj.getString("imdbRating").equals("N/A") || obj.getString("Metascore").equals("N/A")) {
-                        score.setText("N/A\nN/A");
-                    } else {
-                        score.setText(obj.getString("imdbRating") + "/10\n" + obj.getString("Metascore") + "/100");
-                    }
-                    genre.setText(obj.getString("Genre").replaceAll(", ", "\n"));
-                    actors.setText(obj.getString("Actors").replaceAll(", ", "\n"));
-                    plot.setText(obj.getString("Plot"));
-                    director.setText(obj.getString("Director"));
-
-                    if (!obj.getString("Poster").equals("N/A")) {
-                        try {
-                            URL imageUrl = new URL(obj.getString("Poster"));
-                            try (InputStream imageReader = new BufferedInputStream(
-                                    imageUrl.openStream());
-                                    OutputStream imageWriter = new BufferedOutputStream(
-                                            new FileOutputStream(new File("").getAbsolutePath() + File.separator + "temp.temp"));) {
-                                int readByte;
-                                while ((readByte = imageReader.read()) != -1) {
-                                    imageWriter.write(readByte);
-                                }
-                            }
-
-                            Image img = new Image("file:temp.temp");
-                            imgView.setImage(img);
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
+                    Platform.runLater(() -> {
+                        title.setText(obj.getString("Title"));
+                        if (obj.getString("Title").toLowerCase().startsWith("the ")) {
+                            orderTitle.setText(obj.getString("Title").substring(4).toLowerCase());
+                        } else {
+                            orderTitle.setText(obj.getString("Title").toLowerCase());
                         }
-                    } else {
+                        String tempYear = obj.getString("Year").replaceAll("\\D+", "");;
+                        if (tempYear.length() > 4) {
+                            tempYear = tempYear.substring(0, 4) + "-" + tempYear.substring(tempYear.length() - 4, tempYear.length());
+                        }
+                        year.setText(tempYear);
+                        if (obj.getString("imdbRating").equals("N/A") || obj.getString("Metascore").equals("N/A")) {
+                            score.setText("N/A\nN/A");
+                        } else {
+                            score.setText(obj.getString("imdbRating") + "/10\n" + obj.getString("Metascore") + "/100");
+                        }
+                        genre.setText(obj.getString("Genre").replaceAll(", ", "\n"));
+                        actors.setText(obj.getString("Actors").replaceAll(", ", "\n"));
+                        plot.setText(obj.getString("Plot"));
+                        director.setText(obj.getString("Director"));
+                    });
+                    if (obj.getString("Poster").equals("N/A") || !Consumer.getImage(obj.getString("Poster"))) {
                         try {
                             Files.copy(Paths.get(new File("").getAbsolutePath() + File.separator + "notFound.jpg"),
                                     Paths.get(new File("").getAbsolutePath() + File.separator + "temp.temp"), REPLACE_EXISTING);
-                            Image img = new Image("file:temp.temp");
-                            imgView.setImage(img);
                         } catch (IOException ex) {
                             ex.printStackTrace();
                         }
-
                     }
-                    addButton.setText("Add");
-                    addButton.setVisible(true);
-                    remButton.setVisible(false);
+                    Platform.runLater(() -> {
+                        imgView.setImage(new Image("file:temp.temp"));
 
-                    imdbLink.setVisible(true);
-                    torrentLink.setVisible(true);
-                    webview.setVisible(true);
-                    webview.getEngine().setUserAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11");
-                    webview.getEngine().load("https://www.youtube.com/embed/" + getYoutubeID(title.getText(), year.getText()));
-                    getMagnetLink(title.getText(), year.getText());
+                        addButton.setText("Add");
+                        addButton.setVisible(true);
+                        remButton.setVisible(false);
 
+                        imdbLink.setVisible(true);
+                        torrentLink.setVisible(true);
+                        webview.setVisible(true);
+                        //webview.getEngine().setUserAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11");
+                        webview.getEngine().load("https://www.youtube.com/embed/"
+                                + Consumer.getYoutubeID(title.getText(), year.getText()));
+                        magnetLink = Consumer.getMagnetLink(title.getText(), year.getText());
+                        if (magnetLink == null) {
+                            torrentLink.setVisible(false);
+                        }
+                    });
                 } else {
-                    imdbLink.setVisible(false);
-                    webview.setVisible(false);
-                    torrentLink.setVisible(false);
+                    Platform.runLater(() -> {
+                        imdbLink.setVisible(false);
+                        webview.setVisible(false);
+                        torrentLink.setVisible(false);
+                        addButton.setVisible(false);
+                        remButton.setVisible(false);
+                    });
                     id = null;
-                    addButton.setVisible(false);
-                    remButton.setVisible(false);
                 }
+                Platform.runLater(() -> {
+                    searchButton.setDisable(false);
+                    searchButton.setText("Search");
+                });
+
+                return 0;
+            }
+        };
+
+        Thread th = new Thread(task);
+        th.setDaemon(true);
+
+        return th;
+    }
+
+    public final void configureSearchButton() {
+        searchButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                searchThread().start();
             }
         });
-    }
-
-    public void getMagnetLink(String title, String year) {
-        String magnet = "https://kickass.unblocked.li/usearch/" + year;
-        String[] fields = title.split("[^a-zA-Z\\d\\s:]");
-        for (String str : fields) {
-            try {
-                magnet += URLEncoder.encode(" " + str, "UTF-8");
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                return;
-            }
-        }
-        magnet += "/?rss=1";
-        magnet = magnet.replaceAll("\\+", "%20");
-
-        String results = Consumer.getXML(magnet);
-        if (results.equals("<>")) {
-            torrentLink.setVisible(false);
-            return;
-        }
-
-        Pattern p = Pattern.compile("<torrent:magnetURI>.*?</torrent:magnetURI>", Pattern.DOTALL);
-        Matcher m = p.matcher(results);
-        if (m.find()) {
-            magnetLink = m.group().replace("<torrent:magnetURI><![CDATA[", "").replace("]]></torrent:magnetURI>", "");
-            System.out.println(magnetLink);
-        } else {
-            torrentLink.setVisible(false);
-        }
-
-    }
-
-    public static void main(String[] args) {
-        String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                + "<rss version=\"2.0\" xmlns:torrent=\"//kastatic.com/xmlns/0.1/\">\n"
-                + "<channel>\n"
-                + "    <title>Torrents by keyword \"2014 Bosch\" - KickassTorrents</title>\n"
-                + "    <link>http://kat.cr/</link>\n"
-                + "    <description>Torrents by keyword \"2014 Bosch\"</description>\n"
-                + "    <item>\n"
-                + "        <title>Connelly, Michael - [Harry Bosch #19] - The Burning Room (2014, Orion, 9780316225939).epub</title>\n"
-                + "        <category>Books - Fiction</category>\n"
-                + "      <author>http://kat.cr/user/ss99/</author>\n"
-                + "        <link>http://kat.cr/connelly-michael-harry-bosch-19-the-burning-room-2014-orion-9780316225939-epub-t11004148.html</link>\n"
-                + "        <guid>http://kat.cr/connelly-michael-harry-bosch-19-the-burning-room-2014-orion-9780316225939-epub-t11004148.html</guid>\n"
-                + "        <pubDate>Mon, 27 Jul 2015 18:38:19 +0000</pubDate>\n"
-                + "        <torrent:contentLength>575226</torrent:contentLength>\n"
-                + "        <torrent:infoHash>CD960E28210817D52E99BF3870D4685792D14A95</torrent:infoHash>\n"
-                + "        <torrent:magnetURI>\n"
-                + "<![CDATA[magnet:?xt=urn:btih:CD960E28210817D52E99BF3870D4685792D14A95&dn=connelly+michael+harry+bosch+19+the+burning+room+2014+orion+9780316225939+epub&tr=udp%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=udp%3A%2F%2Fglotorrents.pw%3A6969%2Fannounce]]>\n"
-                + "</torrent:magnetURI>\n"
-                + "        <torrent:seeds>7</torrent:seeds>\n"
-                + "        <torrent:peers>7</torrent:peers>\n"
-                + "        <torrent:verified>1</torrent:verified>\n"
-                + "        <torrent:fileName>connelly.michael.harry.bosch.19.the.burning.room.2014.orion.9780316225939.epub.torrent</torrent:fileName>\n"
-                + "        <enclosure url=\"https://torcache.net/torrent/CD960E28210817D52E99BF3870D4685792D14A95.torrent?title=[kat.cr]connelly.michael.harry.bosch.19.the.burning.room.2014.orion.9780316225939.epub\" length=\"575226\" type=\"application/x-bittorrent\" />\n"
-                + "    </item>\n"
-                + "    <item>\n"
-                + "        <title>Bosch 2014 S01 VOSTFR Complete HDTV x264-BRN [Seedbox]</title>\n"
-                + "        <category>TV</category>\n"
-                + "      <author>http://kat.cr/user/rosa1917/</author>\n"
-                + "        <link>http://kat.cr/bosch-2014-s01-vostfr-complete-hdtv-x264-brn-seedbox-t10786489.html</link>\n"
-                + "        <guid>http://kat.cr/bosch-2014-s01-vostfr-complete-hdtv-x264-brn-seedbox-t10786489.html</guid>\n"
-                + "        <pubDate>Fri, 12 Jun 2015 18:18:44 +0000</pubDate>\n"
-                + "        <torrent:contentLength>2832938879</torrent:contentLength>\n"
-                + "        <torrent:infoHash>C7455CE61108333E4D381F17BC0F75F2728A17BD</torrent:infoHash>\n"
-                + "        <torrent:magnetURI>\n"
-                + "<![CDATA[magnet:?xt=urn:btih:C7455CE61108333E4D381F17BC0F75F2728A17BD&dn=bosch+2014+s01+vostfr+complete+hdtv+x264+brn+seedbox&tr=udp%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=udp%3A%2F%2Fglotorrents.pw%3A6969%2Fannounce]]>\n"
-                + "</torrent:magnetURI>\n"
-                + "        <torrent:seeds>5</torrent:seeds>\n"
-                + "        <torrent:peers>9</torrent:peers>\n"
-                + "        <torrent:verified>1</torrent:verified>\n"
-                + "        <torrent:fileName>bosch.2014.s01.vostfr.complete.hdtv.x264.brn.seedbox.torrent</torrent:fileName>\n"
-                + "        <enclosure url=\"https://torcache.net/torrent/C7455CE61108333E4D381F17BC0F75F2728A17BD.torrent?title=[kat.cr]bosch.2014.s01.vostfr.complete.hdtv.x264.brn.seedbox\" length=\"2832938879\" type=\"application/x-bittorrent\" />\n"
-                + "    </item>\n"
-                + "    <item>\n"
-                + "        <title>Diesel Engine Management Systems and Components Bosch Professional Automotive Information[WildTurkey00][PDF][2014]-UBTRG</title>\n"
-                + "        <category>Books - Non-fiction</category>\n"
-                + "      <author>http://kat.cr/user/WildTurkey00/</author>\n"
-                + "        <link>http://kat.cr/diesel-engine-management-systems-and-components-bosch-professional-automotive-information-wildturkey00-pdf-2014-ubtrg-t9895560.html</link>\n"
-                + "        <guid>http://kat.cr/diesel-engine-management-systems-and-components-bosch-professional-automotive-information-wildturkey00-pdf-2014-ubtrg-t9895560.html</guid>\n"
-                + "        <pubDate>Wed, 26 Nov 2014 04:37:27 +0000</pubDate>\n"
-                + "        <torrent:contentLength>13616625</torrent:contentLength>\n"
-                + "        <torrent:infoHash>F3F0085F8559F06A3BE3D3BEED4732A8A623A8C5</torrent:infoHash>\n"
-                + "        <torrent:magnetURI>\n"
-                + "<![CDATA[magnet:?xt=urn:btih:F3F0085F8559F06A3BE3D3BEED4732A8A623A8C5&dn=diesel+engine+management+systems+and+components+bosch+professional+automotive+information+wildturkey00+pdf+2014+ubtrg&tr=udp%3A%2F%2Ftracker.publicbt.com%2Fannounce&tr=udp%3A%2F%2Fglotorrents.pw%3A6969%2Fannounce]]>\n"
-                + "</torrent:magnetURI>\n"
-                + "        <torrent:seeds>18</torrent:seeds>\n"
-                + "        <torrent:peers>18</torrent:peers>\n"
-                + "        <torrent:verified>1</torrent:verified>\n"
-                + "        <torrent:fileName>diesel.engine.management.systems.and.components.bosch.professional.automotive.information.wildturkey00.pdf.2014.ubtrg.torrent</torrent:fileName>\n"
-                + "        <enclosure url=\"https://torcache.net/torrent/F3F0085F8559F06A3BE3D3BEED4732A8A623A8C5.torrent?title=[kat.cr]diesel.engine.management.systems.and.components.bosch.professional.automotive.information.wildturkey00.pdf.2014.ubtrg\" length=\"13616625\" type=\"application/x-bittorrent\" />\n"
-                + "    </item>\n"
-                + "    </channel>\n"
-                + "</rss>";
-
-        Pattern p = Pattern.compile("<torrent:magnetURI>.*?</torrent:magnetURI>", Pattern.DOTALL);
-        Matcher m = p.matcher(xml);
-        if (m.find()) {
-            System.out.println(m.group().replace("<torrent:magnetURI>\n", "").replace("\n</torrent:magnetURI>", ""));
-        }
-
-    }
-
-    public String getYoutubeID(String title, String year) {
-        String[] fields = title.split("[^a-zA-Z\\d\\s:]");
-
-        String importIO = "https://api.import.io/store/connector/404864f4-0b74-471a-ac9b-b7df70913624/_query?input=webpage/url:https%3A%2F%2Fwww.youtube.com%2Fresults%3Fsearch_query%3Dtrailer%2B" + year;
-        for (String str : fields) {
-            try {
-                importIO += URLEncoder.encode(" " + str, "UTF-8");
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                return "";
-            }
-        }
-        importIO += "&&_apikey=4911226d82c84f2f9e06e04bffad812e3ee3dd322ae4d7309f3751ce6913e2da924f27aabd67c1a8d8aee488dc392b80c9de4885cd3d16c6d630151818526d3b5b50b3d57bcf816bfa015eeeb4989a1f";
-        System.out.println(importIO);
-
-        String results = Consumer.getJSON(importIO);
-
-        String retVal = "";
-        JSONArray mainObj = new JSONObject(results).getJSONArray("results");
-        if (mainObj.length() > 0) {
-            String[] link = mainObj.getJSONObject(0).getString("uixtile_link").split("v=");
-            retVal = link[link.length - 1];
-        }
-
-        return retVal;
     }
 
     public final void configureAddButton() {
         addButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                JSONArray list = JsonManager.readJson(choicebox.getSelectionModel().getSelectedItem().toString());
-
-                JSONObject curr = new JSONObject();
-                curr.put("title", title.getText().replaceAll("\"", ""));
-                curr.put("year", year.getText());
-                curr.put("director", director.getText());
-                curr.put("genre", genre.getText().replaceAll("\"", ""));
-                curr.put("actors", actors.getText().replaceAll("\"", ""));
-                curr.put("score", score.getText());
-                curr.put("orderTitle", orderTitle.getText());
-                curr.put("id", id);
-
-                int i = 0;
-
-                // Remove from JSON if local
-                if (local) {
-                    while (i < list.length()) {
-                        if (((JSONObject) list.get(i)).getString("id").equals(id)) {
-                            list.remove(i);
-                            break;
-                        }
-                        i++;
-                    }
-                }
-
-                // Insert into JSON 
-                i = 0;
-                if (list.length() > 0) {
-                    while (i < list.length() && ((JSONObject) list.get(i)).getString("orderTitle").compareTo(orderTitle.getText()) < 0) {
-                        i++;
-                    }
-
-                    for (int j = list.length(); j > i; j--) {
-                        list.put(j, list.getJSONObject(j - 1));
-                    }
-                }
-                list.put(i, curr);
-
-                JsonManager.writeJson(choicebox.getSelectionModel().getSelectedItem().toString(), list);
-
-                // Remove from pane (if local)
-                if (local) {
-                    removeFromFlowpane(id, fp.get(choicebox.getSelectionModel().getSelectedIndex()));
-                }
-
-                if (!local) {
-                    File photo = new File(id + ".jpg");
-                    if (photo.exists()) {
-                        //photo.delete();
-                    } else {
-                        new File("temp.temp").renameTo(photo);
-                    }
-                }
-
-                // Add into pane
-                insertInFlowpane(i, title.getText(), year.getText(), id, choicebox.getSelectionModel().getSelectedItem().toString(), fp.get(choicebox.getSelectionModel().getSelectedIndex()));
+                String listName = choicebox.getSelectionModel().getSelectedItem().toString();
+                ImdbList tab = ((ImdbList) MovieIndexer.getTabByName(tabs, listName));
+                int[] indexes = tab.addMovie(local, new String[]{
+                    title.getText().replaceAll("\"", ""), year.getText(), director.getText(), genre.getText().replaceAll("\"", ""),
+                    actors.getText().replaceAll("\"", ""), score.getText(), orderTitle.getText(), id});
 
                 // Reset GUI
-                title.setText("");
-                year.setText("");
-                director.setText("");
-                genre.setText("");
-                actors.setText("");
-                score.setText("");
-                orderTitle.setText("");
-                plot.setText("");
+                clearMenu();
 
-                id = null;
-                imgView.setImage(null);
-                addButton.setText("Add");
-                addButton.setVisible(false);
-                remButton.setVisible(false);
-
-                int tabIndex = getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString());
-                tabs.getSelectionModel().select(tabIndex);
-
+                tabs.getSelectionModel().select(tab);
                 int moviesPerRow = (int) (tabs.getWidth() - 24) / (200 + 4);
-                ((ImdbList) tabs.getSelectionModel().getSelectedItem().getContent()).setVvalue(
-                        ((i / moviesPerRow)) / ((Math.ceil(list.length() * 1.0 / moviesPerRow)) - 1));
+                ((ImdbList) tabs.getSelectionModel().getSelectedItem()).scroller.setVvalue(
+                        ((indexes[0] / moviesPerRow)) / ((Math.ceil(indexes[1] * 1.0 / moviesPerRow)) - 1));
 
             }
         });
@@ -696,30 +484,16 @@ public class AddMenu extends VBox {
         remButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                JSONArray list = JsonManager.readJson(choicebox.getSelectionModel().getSelectedItem().toString());
+                String listName = choicebox.getSelectionModel().getSelectedItem().toString();
+                ImdbList tab = ((ImdbList) MovieIndexer.getTabByName(tabs, listName));
+                tab.removeMovie(id);
 
-                for (int i = 0; i < list.length(); i++) {
-                    JSONObject curr = list.getJSONObject(i);
-                    if (curr.getString("id").equals(id)) {
-                        list.remove(i);
-                    }
-                }
-
-                JsonManager.writeJson(choicebox.getSelectionModel().getSelectedItem().toString(), list);
-
-                title.setText("");
-                year.setText("");
-                director.setText("");
-                genre.setText("");
-                actors.setText("");
-                score.setText("");
-                orderTitle.setText("");
-                plot.setText("");
-
+                // only delete image if its not used anywhere else
                 int counter = 0;
-                for (String tab : cbOptions) {
-                    if (searchLocally(tab)) {
+                for (String tabName : cbOptions) {
+                    if (searchLocally(tabName)) {
                         counter++;
+                        break;
                     }
                 }
                 if (counter == 0) {
@@ -729,41 +503,38 @@ public class AddMenu extends VBox {
                     }
                 }
 
-                imgView.setImage(null);
-                addButton.setText("Add");
-                addButton.setVisible(false);
-                remButton.setVisible(false);
-
-                removeFromFlowpane(id, fp.get(choicebox.getSelectionModel().getSelectedIndex()));
-
-                id = null;
-                tabs.getSelectionModel().select(getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString()));
+                clearMenu();
+                tabs.getSelectionModel().select(tab);
             }
         });
+    }
+
+    public void clearMenu() {
+        title.setText("");
+        year.setText("");
+        director.setText("");
+        genre.setText("");
+        actors.setText("");
+        score.setText("");
+        orderTitle.setText("");
+        plot.setText("");
+
+        id = null;
+        imgView.setImage(null);
+        addButton.setText("Add");
+        addButton.setVisible(false);
+        remButton.setVisible(false);
+
+        imdbLink.setVisible(false);
+        webview.setVisible(false);
     }
 
     public final void configureCancelButton() {
         cancelButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                title.setText("");
-                year.setText("");
-                director.setText("");
-                genre.setText("");
-                actors.setText("");
-                score.setText("");
-                orderTitle.setText("");
-                plot.setText("");
-
-                imgView.setImage(null);
-                addButton.setText("Add");
-                addButton.setVisible(false);
-                remButton.setVisible(false);
-                imdbLink.setVisible(false);
-                webview.setVisible(false);
-
-                id = null;
-                tabs.getSelectionModel().select(getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString()));
+                clearMenu();
+                MovieIndexer.selectTab(tabs, choicebox.getSelectionModel().getSelectedItem().toString());
             }
         });
     }
@@ -781,8 +552,9 @@ public class AddMenu extends VBox {
             public void handle(ActionEvent event) {
                 JsonManager.removeJson(choicebox.getSelectionModel().getSelectedItem().toString());
 
-                tabs.getTabs().remove(getIndexByName(choicebox.getSelectionModel().getSelectedItem().toString()));
-                cbOptions.remove(choicebox.getSelectionModel().getSelectedItem().toString());
+                String listName = choicebox.getSelectionModel().getSelectedItem().toString();
+                tabs.getTabs().remove(MovieIndexer.getTabByName(tabs, listName));
+                cbOptions.remove(listName);
                 choicebox.getSelectionModel().select(0);
 
                 if (cbOptions.size() == 1) {
