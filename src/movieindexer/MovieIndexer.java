@@ -1,9 +1,13 @@
 package movieindexer;
 
 import java.io.File;
+import java.lang.reflect.Field;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Scanner;
+//import java.util.Scanner;
 import javafx.application.Application;
+import javafx.application.Preloader;
+import javafx.application.Preloader.StateChangeNotification.Type;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ObservableList;
@@ -43,8 +47,19 @@ public class MovieIndexer extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        FirstPreloader loadingScreen = new FirstPreloader();
+
+        try {
+            loadingScreen.start(primaryStage);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        loadingScreen.handleProgressNotification(new Preloader.ProgressNotification(0));
+        
+        
         tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabs.setFocusTraversable(false);
 
         // Add tab
         Tab addTab = new Tab("Add");
@@ -53,14 +68,26 @@ public class MovieIndexer extends Application {
 
         File[] listOfFiles = new File(".").listFiles();
         ArrayList<Tab> jsons = new ArrayList();
+        double index=0, maxIndex=0;
+        for (File f : listOfFiles) {
+            if (f.getName().endsWith(".json")) {
+                maxIndex++;
+            }
+        }
         for (File f : listOfFiles) {
             String fileName = f.getName();
             if (fileName.endsWith(".json")) {
+                loadingScreen.label.setText("fileName");
                 String realName = fileName.substring(0, fileName.length() - 5);
                 ImdbList ml = new ImdbList(tabs, am, realName);
                 jsons.add(ml);
+                index++;
+                loadingScreen.notifyPreloader(new Preloader.ProgressNotification(index/maxIndex));
+                
             }
         }
+        loadingScreen.notifyPreloader(new Preloader.StateChangeNotification(Type.BEFORE_START));
+                
 
         // Tabs
         tabs.getTabs().addAll(jsons);
@@ -146,26 +173,23 @@ public class MovieIndexer extends Application {
 
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        System.setProperty("file.encoding", "UTF-8");
+        Field charset = Charset.class.getDeclaredField("defaultCharset");
+        charset.setAccessible(true);
+        charset.set(null, null);
+
         launch(args);
     }
 
     // Search function
     public void filterButton() {
         String text = searchField.getText();
-        String fName = tabs.getSelectionModel().getSelectedItem().getText();
+        String fName = ((ImdbList)tabs.getSelectionModel().getSelectedItem()).jsonName;
+        JSONArray list = JsonManager.readJson(fName);
 
-        JSONArray list;
-        try (Scanner fin = new Scanner(new File(fName + ".json")).useDelimiter("\\Z")) {
-            String content = fin.next();
-            list = new JSONObject(content).getJSONArray("movies");
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            System.out.println(fName + ".json file not found.");
-            return;
-        }
-
-        ImdbList results = new ImdbList(tabs, am, "Results");
+        ResultsList results = new ResultsList(tabs, am, fName);
         results.flow.setPrefWidth(tabs.getWidth() - 24);
 
         for (Object curr : list) {
@@ -202,15 +226,17 @@ public class MovieIndexer extends Application {
 
             Text idRef = new Text(curr2.getString("id"));
             idRef.setVisible(false);
-            
-            results.flow.getChildren().add(results.flow.getChildren().size(), am.configureVBox(title2, imgView2, idRef, am, ""));
+
+            results.flow.getChildren().add(results.flow.getChildren().size(), am.configureVBox(title2, imgView2, idRef, am, fName));
         }
 
+        // remove previous results tab
         Tab lastTab = tabs.getTabs().get(tabs.getTabs().size() - 1);
-        if ("Results".equals(lastTab.getText())) {
+        if (tabs.getTabs().get(tabs.getTabs().size() - 1) instanceof ResultsList) {
             tabs.getTabs().remove(lastTab);
         }
 
+        // add new results tab
         tabs.getTabs().add(results);
         tabs.getSelectionModel().selectLast();
     }

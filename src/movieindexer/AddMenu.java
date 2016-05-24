@@ -166,7 +166,9 @@ public class AddMenu extends VBox {
 
     public void updateList() {
         for (Tab tab : tabs.getTabs()) {
-            cbOptions.add(tab.getText());
+            if(tab instanceof ImdbList){
+                cbOptions.add(tab.getText());
+            }
         }
 
         if (cbOptions.size() == 0) {
@@ -225,7 +227,7 @@ public class AddMenu extends VBox {
     }
 
     public boolean searchLocally(String fName) {
-        JSONArray list;
+        /*JSONArray list;
 
         try (Scanner fin = new Scanner(new File(fName + ".json")).useDelimiter("\\Z")) {
             String content = fin.next();
@@ -233,7 +235,8 @@ public class AddMenu extends VBox {
         } catch (Exception ex) {
             System.out.println(".json file not found.");
             list = new JSONArray();
-        }
+        }*/
+        JSONArray list = JsonManager.readJson(fName);
 
         for (int i = 0; i < list.length(); i++) {
             JSONObject curr = list.getJSONObject(i);

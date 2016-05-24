@@ -6,6 +6,7 @@
 package movieindexer;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.Scanner;
 import javafx.event.EventHandler;
 import javafx.geometry.Pos;
@@ -36,11 +37,13 @@ public class ImdbList extends Tab {
     FlowPane flow;
     TabPane parent;
     AddMenu am;
-
+    String jsonName;
+    
     public ImdbList(TabPane t, AddMenu am, String name) {
         super(name);
         this.parent = t;
         this.am = am;
+        this.jsonName=name;
 
         this.flow = new FlowPane();
         flow.setVgap(4);
@@ -54,10 +57,12 @@ public class ImdbList extends Tab {
 
         JSONArray list;
 
-        try (Scanner fin = new Scanner(new File(name + ".json")).useDelimiter("\\Z")) {
+        try (Scanner fin = new Scanner(new File(jsonName + ".json")).useDelimiter("\\Z")) {
+            System.out.println("Reading "+name);
             String content = fin.next();
+            //System.out.println("Reading "+name+": "+content);
             list = new JSONObject(content).getJSONArray("movies");
-
+            System.out.println("Done.");
             for (int i = 0; i < list.length(); i++) {
                 Text title = new Text(list.getJSONObject(i).getString("title") + " (" + list.getJSONObject(i).getString("year") + ")");
                 title.setFont(Font.font("Arial", FontWeight.BOLD, 14));
@@ -75,8 +80,11 @@ public class ImdbList extends Tab {
 
                 flow.getChildren().add(am.configureVBox(title, imgView, idRef, am, name));
             }
-        } catch (Exception ex) {
+        } catch (FileNotFoundException ex) {
             System.out.println(name + ".json file not found. Starting empty ImdbList");
+            System.out.println("\t"+ex.getMessage());
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
 
         scroller = new ScrollPane();
@@ -90,7 +98,7 @@ public class ImdbList extends Tab {
 
     // returns {position at which movie was inserted, movie list size}
     public int[] addMovie(boolean local, String[] movieDetails) {
-        JSONArray list = JsonManager.readJson(this.getText());
+        JSONArray list = JsonManager.readJson(jsonName);
 
         JSONObject curr = new JSONObject();
         curr.put("title", movieDetails[0]);
@@ -128,7 +136,7 @@ public class ImdbList extends Tab {
         }
         list.put(i, curr);
 
-        JsonManager.writeJson(this.getText(), list);
+        JsonManager.writeJson(jsonName, list);
 
         // Remove from pane (if local)
         if (local) {
@@ -151,7 +159,7 @@ public class ImdbList extends Tab {
     }
 
     public void removeMovie(String id) {
-        JSONArray list = JsonManager.readJson(this.getText());
+        JSONArray list = JsonManager.readJson(jsonName);
 
         for (int i = 0; i < list.length(); i++) {
             JSONObject curr = list.getJSONObject(i);
@@ -160,7 +168,7 @@ public class ImdbList extends Tab {
             }
         }
 
-        JsonManager.writeJson(this.getText(), list);
+        JsonManager.writeJson(jsonName, list);
 
         removeFromFlowpane(id);
 
@@ -181,7 +189,7 @@ public class ImdbList extends Tab {
         Text idRef = new Text(movie.getString("id"));
         idRef.setVisible(false);
 
-        flow.getChildren().add(pos, createMovieVBox(title2, imgView2, idRef, this.getText()));
+        flow.getChildren().add(pos, createMovieVBox(title2, imgView2, idRef, jsonName));
     }
 
     private VBox createMovieVBox(Text title, ImageView imgView, Text idRef, String name) {
@@ -218,5 +226,5 @@ public class ImdbList extends Tab {
             }
         }
     }
-    
+
 }
