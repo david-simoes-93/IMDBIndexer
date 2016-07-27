@@ -424,7 +424,7 @@ public class AddMenu extends VBox {
                         addButton.setVisible(true);
                         remButton.setVisible(false);
 
-                        imdbLink.setVisible(true);
+                       /* imdbLink.setVisible(true);
                         torrentLink.setVisible(true);
                         webview.setVisible(true);
                         //webview.getEngine().setUserAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11");
@@ -433,7 +433,7 @@ public class AddMenu extends VBox {
                         magnetLink = Consumer.getMagnetLink(title.getText(), year.getText());
                         if (magnetLink == null) {
                             torrentLink.setVisible(false);
-                        }
+                        }*/
                     });
                 } else {
                     Platform.runLater(() -> {

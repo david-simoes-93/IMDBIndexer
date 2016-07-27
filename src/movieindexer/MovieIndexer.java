@@ -54,7 +54,7 @@ public class MovieIndexer extends Application {
     @Override
     public void start(Stage primaryStage) throws InterruptedException {
         BooleanProperty readingFiles = new SimpleBooleanProperty(false);
- 
+
         tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabs.setFocusTraversable(false);
@@ -67,38 +67,50 @@ public class MovieIndexer extends Application {
         Task<ArrayList<Tab>> task = new Task<ArrayList<Tab>>() {
             @Override
             protected ArrayList<Tab> call() throws Exception {
-                
+
                 File[] listOfFiles = new File(".").listFiles();
                 ArrayList<Tab> jsons = new ArrayList();
                 double index = 0, maxIndex = 0;
-                
+
                 // get amount of files to read
                 for (File f : listOfFiles) {
                     if (f.getName().endsWith(".json")) {
                         maxIndex++;
                     }
                 }
-                
-                // read each json and add to tab
-                for (File f : listOfFiles) {
-                    String fileName = f.getName();
-                    if (fileName.endsWith(".json")) {
-                        String realName = fileName.substring(0, fileName.length() - 5);
-                        ImdbList ml = new ImdbList(tabs, am, realName);
-                        jsons.add(ml);
-                        tabs.getTabs().add(ml);
-                        
-                        index++;
-                        notifyPreloader(new Preloader.ProgressNotification(index / maxIndex));
+
+                if (maxIndex == 0) {
+                    // if no JSONs available, create one
+                    if (!JsonManager.createEmptyJson("Movies")) {
+                        return null;
                     }
+
+                    ImdbList ml = new ImdbList(tabs, am, "Movies");
+                    tabs.getTabs().add(ml);
+                } else {
+                    // read each json and add to tab
+                    for (File f : listOfFiles) {
+                        String fileName = f.getName();
+                        if (fileName.endsWith(".json")) {
+
+                            String realName = fileName.substring(0, fileName.length() - 5);
+                            FirstPreloader.labelText = "Loading " + realName;
+                            notifyPreloader(new Preloader.ProgressNotification(index / maxIndex));
+
+                            ImdbList ml = new ImdbList(tabs, am, realName);
+                            jsons.add(ml);
+                            tabs.getTabs().add(ml);
+
+                            index++;
+                        }
+                    }
+                    notifyPreloader(new Preloader.ProgressNotification(index / maxIndex));
                 }
                 readingFiles.setValue(Boolean.TRUE);
                 return jsons;
             }
         };
         new Thread(task).start();
-
-        
 
         // Bottom buttons
         HBox hbButtons = new HBox();
@@ -185,7 +197,7 @@ public class MovieIndexer extends Application {
                             // Tabs
                             am.updateList();
                             tabs.getTabs().add(addTab);
-                            
+
                             notifyPreloader(new Preloader.StateChangeNotification(Type.BEFORE_START));
                             primaryStage.show();
                         }
