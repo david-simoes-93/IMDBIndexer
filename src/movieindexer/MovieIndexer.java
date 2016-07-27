@@ -4,13 +4,19 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 //import java.util.Scanner;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.application.Preloader;
 import javafx.application.Preloader.StateChangeNotification.Type;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.*;
@@ -46,17 +52,9 @@ public class MovieIndexer extends Application {
     TextField searchField;
 
     @Override
-    public void start(Stage primaryStage) {
-        FirstPreloader loadingScreen = new FirstPreloader();
-
-        try {
-            loadingScreen.start(primaryStage);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        loadingScreen.handleProgressNotification(new Preloader.ProgressNotification(0));
-        
-        
+    public void start(Stage primaryStage) throws InterruptedException {
+        BooleanProperty readingFiles = new SimpleBooleanProperty(false);
+ 
         tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabs.setFocusTraversable(false);
@@ -66,33 +64,41 @@ public class MovieIndexer extends Application {
         am = new AddMenu(tabs);
         addTab.setContent(am);
 
-        File[] listOfFiles = new File(".").listFiles();
-        ArrayList<Tab> jsons = new ArrayList();
-        double index=0, maxIndex=0;
-        for (File f : listOfFiles) {
-            if (f.getName().endsWith(".json")) {
-                maxIndex++;
-            }
-        }
-        for (File f : listOfFiles) {
-            String fileName = f.getName();
-            if (fileName.endsWith(".json")) {
-                loadingScreen.label.setText("fileName");
-                String realName = fileName.substring(0, fileName.length() - 5);
-                ImdbList ml = new ImdbList(tabs, am, realName);
-                jsons.add(ml);
-                index++;
-                loadingScreen.notifyPreloader(new Preloader.ProgressNotification(index/maxIndex));
+        Task<ArrayList<Tab>> task = new Task<ArrayList<Tab>>() {
+            @Override
+            protected ArrayList<Tab> call() throws Exception {
                 
-            }
-        }
-        loadingScreen.notifyPreloader(new Preloader.StateChangeNotification(Type.BEFORE_START));
+                File[] listOfFiles = new File(".").listFiles();
+                ArrayList<Tab> jsons = new ArrayList();
+                double index = 0, maxIndex = 0;
                 
+                // get amount of files to read
+                for (File f : listOfFiles) {
+                    if (f.getName().endsWith(".json")) {
+                        maxIndex++;
+                    }
+                }
+                
+                // read each json and add to tab
+                for (File f : listOfFiles) {
+                    String fileName = f.getName();
+                    if (fileName.endsWith(".json")) {
+                        String realName = fileName.substring(0, fileName.length() - 5);
+                        ImdbList ml = new ImdbList(tabs, am, realName);
+                        jsons.add(ml);
+                        tabs.getTabs().add(ml);
+                        
+                        index++;
+                        notifyPreloader(new Preloader.ProgressNotification(index / maxIndex));
+                    }
+                }
+                readingFiles.setValue(Boolean.TRUE);
+                return jsons;
+            }
+        };
+        new Thread(task).start();
 
-        // Tabs
-        tabs.getTabs().addAll(jsons);
-        am.updateList();
-        tabs.getTabs().add(addTab);
+        
 
         // Bottom buttons
         HBox hbButtons = new HBox();
@@ -107,8 +113,8 @@ public class MovieIndexer extends Application {
         });
         hbButtons.getChildren().add(scrapeBtn);
 
+        // bottom search field
         searchField = new TextField();
-
         searchField.setOnKeyPressed(new EventHandler<KeyEvent>() {
             @Override
             public void handle(KeyEvent keyEvent) {
@@ -121,20 +127,18 @@ public class MovieIndexer extends Application {
         }
         );
         hbButtons.getChildren().add(searchField);
-        hbButtons.setHgrow(searchField, Priority.ALWAYS);
+        HBox.setHgrow(searchField, Priority.ALWAYS);
 
         // root
         BorderPane root = new BorderPane();
         root.setCenter(tabs);
         root.setBottom(hbButtons);
-
         Scene scene = new Scene(root);
 
         // Final setup
         primaryStage.setScene(scene);
         primaryStage.setTitle("MovieIndexer");
         primaryStage.setMaximized(true);
-        primaryStage.show();
 
         // Resize listener
         primaryStage.widthProperty().addListener(new ChangeListener<Number>() {
@@ -171,6 +175,25 @@ public class MovieIndexer extends Application {
             }
         });
 
+        // show scene when all's done
+        readingFiles.addListener(new ChangeListener<Boolean>() {
+            public void changed(
+                    ObservableValue<? extends Boolean> ov, Boolean t, Boolean t1) {
+                if (Boolean.TRUE.equals(t1)) {
+                    Platform.runLater(new Runnable() {
+                        public void run() {
+                            // Tabs
+                            am.updateList();
+                            tabs.getTabs().add(addTab);
+                            
+                            notifyPreloader(new Preloader.StateChangeNotification(Type.BEFORE_START));
+                            primaryStage.show();
+                        }
+                    });
+                }
+            }
+        });;
+
     }
 
     public static void main(String[] args) throws Exception {
@@ -186,7 +209,7 @@ public class MovieIndexer extends Application {
     // Search function
     public void filterButton() {
         String text = searchField.getText();
-        String fName = ((ImdbList)tabs.getSelectionModel().getSelectedItem()).jsonName;
+        String fName = ((ImdbList) tabs.getSelectionModel().getSelectedItem()).jsonName;
         JSONArray list = JsonManager.readJson(fName);
 
         ResultsList results = new ResultsList(tabs, am, fName);

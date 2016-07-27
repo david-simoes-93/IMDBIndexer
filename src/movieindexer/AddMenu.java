@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,7 +35,10 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
@@ -153,7 +157,7 @@ public class AddMenu extends VBox {
         return infoGrid;
     }
 
-    private void addNewTab(String t, AddMenu am) {
+    private void addNewTab(String t, AddMenu am, boolean startOfList) {
         if (!JsonManager.createEmptyJson(t)) {
             return;
         }
@@ -161,18 +165,22 @@ public class AddMenu extends VBox {
         cbOptions.add(t);
 
         ImdbList ml = new ImdbList(tabs, am, t);
-        tabs.getTabs().add(ml);
+        if (startOfList || tabs.getTabs().size() == 0) {
+            tabs.getTabs().add(ml);
+        } else {
+            tabs.getTabs().add(tabs.getTabs().size() - 1, ml);
+        }
     }
 
     public void updateList() {
         for (Tab tab : tabs.getTabs()) {
-            if(tab instanceof ImdbList){
+            if (tab instanceof ImdbList) {
                 cbOptions.add(tab.getText());
             }
         }
 
         if (cbOptions.size() == 0) {
-            addNewTab("Movies", this);
+            addNewTab("Movies", this, true);
         }
 
         choicebox.getSelectionModel().select(0);
@@ -229,13 +237,13 @@ public class AddMenu extends VBox {
     public boolean searchLocally(String fName) {
         /*JSONArray list;
 
-        try (Scanner fin = new Scanner(new File(fName + ".json")).useDelimiter("\\Z")) {
-            String content = fin.next();
-            list = new JSONObject(content).getJSONArray("movies");
-        } catch (Exception ex) {
-            System.out.println(".json file not found.");
-            list = new JSONArray();
-        }*/
+         try (Scanner fin = new Scanner(new File(fName + ".json")).useDelimiter("\\Z")) {
+         String content = fin.next();
+         list = new JSONObject(content).getJSONArray("movies");
+         } catch (Exception ex) {
+         System.out.println(".json file not found.");
+         list = new JSONArray();
+         }*/
         JSONArray list = JsonManager.readJson(fName);
 
         for (int i = 0; i < list.length(); i++) {
@@ -546,23 +554,37 @@ public class AddMenu extends VBox {
         addButton_list.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                addNewTab(listField.getText(), am);
+                addNewTab(listField.getText(), am, false);
+                listField.clear();
             }
         });
 
         remButton_list.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                JsonManager.removeJson(choicebox.getSelectionModel().getSelectedItem().toString());
+                Alert alert = new Alert(AlertType.CONFIRMATION);
+                alert.setTitle("Confirmation Dialog");
+                alert.setHeaderText("Deleting a list is permanent!");
+                alert.setContentText("Are you sure?");
 
-                String listName = choicebox.getSelectionModel().getSelectedItem().toString();
-                tabs.getTabs().remove(MovieIndexer.getTabByName(tabs, listName));
-                cbOptions.remove(listName);
-                choicebox.getSelectionModel().select(0);
+                Optional<ButtonType> result = alert.showAndWait();
+                if (result.get() == ButtonType.OK) {
+                    // ... user chose OK
+                    JsonManager.removeJson(choicebox.getSelectionModel().getSelectedItem().toString());
 
-                if (cbOptions.size() == 1) {
-                    remButton_list.setDisable(true);
+                    String listName = choicebox.getSelectionModel().getSelectedItem().toString();
+                    tabs.getTabs().remove(MovieIndexer.getTabByName(tabs, listName));
+                    cbOptions.remove(listName);
+                    choicebox.getSelectionModel().select(0);
+
+                    if (cbOptions.size() == 1) {
+                        remButton_list.setDisable(true);
+                    }
+                } else {
+                    // ... user chose CANCEL or closed the dialog
+                    // do nothing
                 }
+
             }
         });
 
@@ -570,6 +592,9 @@ public class AddMenu extends VBox {
                 new ChangeListener<Number>() {
                     @Override
                     public void changed(ObservableValue ov, Number val, Number newVal) {
+                        if (newVal.intValue() < 0) {
+                            return;
+                        }
                         if (addButton.visibleProperty().get()) {
                             if (searchLocally(cbOptions.get(newVal.intValue()))) {
                                 addButton.setVisible(true);

@@ -10,7 +10,7 @@ import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 
 public class FirstPreloader extends Preloader {
-    ProgressBar bar;
+  /*  ProgressBar bar;
     Stage stage;
     ProgressIndicator pi;
     Label label;
@@ -43,5 +43,48 @@ public class FirstPreloader extends Preloader {
         if (evt.getType() == StateChangeNotification.Type.BEFORE_START) {
             stage.hide();
         }
-    }    
+    }    */
+    
+    
+    ProgressBar bar;
+    Stage stage;
+    boolean noLoadingProgress = true;
+ 
+    private Scene createPreloaderScene() {
+        bar = new ProgressBar(0);
+        BorderPane p = new BorderPane();
+        p.setCenter(bar);
+        return new Scene(p, 300, 150);
+    }
+ 
+    public void start(Stage stage) throws Exception {
+        this.stage = stage;
+        stage.setScene(createPreloaderScene());
+        stage.show();
+    }
+ 
+    @Override
+    public void handleProgressNotification(ProgressNotification pn) {
+        //ignore
+    }
+ 
+    @Override
+    public void handleStateChangeNotification(StateChangeNotification evt) {
+        //ignore, hide after application signals it is ready
+    }
+ 
+    @Override
+    public void handleApplicationNotification(PreloaderNotification pn) {
+        System.out.println("lol");
+        if (pn instanceof ProgressNotification) {
+           System.out.println("lol "+((ProgressNotification) pn).getProgress());
+            
+           //expect application to send us progress notifications with progress ranging from 0 to 1.0
+           double v = ((ProgressNotification) pn).getProgress();
+           bar.setProgress(v);            
+        } else if (pn instanceof StateChangeNotification) {
+            //hide after get any state update from application
+            stage.hide();
+        }
+    }  
 }
