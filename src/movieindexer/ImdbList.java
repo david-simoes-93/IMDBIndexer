@@ -36,20 +36,20 @@ public class ImdbList extends Tab {
     ScrollPane scroller;
     FlowPane flow;
     TabPane parent;
-    AddMenu am;
+    AddMenu addMenuTab;
     String jsonName;
     
     public ImdbList(TabPane t, AddMenu am, String name) {
         super(name);
         this.parent = t;
-        this.am = am;
+        this.addMenuTab = am;
         this.jsonName=name;
 
         this.flow = new FlowPane();
         flow.setVgap(4);
         flow.setHgap(4);
         flow.setAlignment(Pos.TOP_CENTER);
-        am.fp.add(flow);
+        //am.fp.add(flow);
 
         Screen screen = Screen.getPrimary();
         Rectangle2D bounds = screen.getVisualBounds();
@@ -206,12 +206,12 @@ public class ImdbList extends Tab {
                 String id = ((Text) vbox.getChildren().get(2)).getText();
                 event.consume();
                 MovieIndexer.selectTab(parent, "Add");
-                am.id = id;
-                am.searchLocally(name);
-                am.addButton.setVisible(true);
-                am.addButton.setText("Update");
-                am.remButton.setVisible(true);
-                am.choicebox.getSelectionModel().select(am.cbOptions.indexOf(name));
+                addMenuTab.currentMovieID = id;
+                addMenuTab.searchLocally(name);
+                addMenuTab.movieAddButton.setVisible(true);
+                addMenuTab.movieAddButton.setText("Update");
+                addMenuTab.movieRemButton.setVisible(true);
+                addMenuTab.listChoiceBox.getSelectionModel().select(addMenuTab.listChoiceBoxOptions.indexOf(name));
             }
         });
         return vbox;

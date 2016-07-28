@@ -14,7 +14,6 @@ import java.net.*;
 import java.net.URL;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javafx.scene.image.Image;
 
 import javax.net.ssl.HttpsURLConnection;
 import org.json.JSONArray;
@@ -22,6 +21,7 @@ import org.json.JSONObject;
 
 public class Consumer {
 
+    // returns a JSON string from URL urlToRead
     public static String getJSON(String urlToRead) {
         URL url;
         HttpURLConnection conn;
@@ -44,6 +44,8 @@ public class Consumer {
         return result.toString();
     }
 
+    // returns an XML string from URL urlToRead
+    // pretends to be a regular browser
     public static String getXML(String urlToRead) {
         System.out.println(urlToRead);
 
@@ -74,6 +76,7 @@ public class Consumer {
         return result.toString();
     }
 
+    // searches YouTube for "trailer <title> <year>" and returns the ID of the first result
     public static String getYoutubeID(String title, String year) {
         String[] fields = title.split("[^a-zA-Z\\d\\s:]");
 
@@ -87,7 +90,7 @@ public class Consumer {
             }
         }
         importIO += "&&_apikey=4911226d82c84f2f9e06e04bffad812e3ee3dd322ae4d7309f3751ce6913e2da924f27aabd67c1a8d8aee488dc392b80c9de4885cd3d16c6d630151818526d3b5b50b3d57bcf816bfa015eeeb4989a1f";
-        System.out.println(importIO);
+        //System.out.println(importIO);
 
         String results = Consumer.getJSON(importIO);
 
@@ -101,9 +104,10 @@ public class Consumer {
         return retVal;
     }
 
+    // searches Kickass torrents for "<year> <title>" and returns the magnetlink
     public static String getMagnetLink(String title, String year) {
         String magnetLink = null;
-        String magnet = "https://kickass.unblocked.li/usearch/" + year;
+        String magnet = "https://kat.al/usearch/" + year;
         String[] fields = title.split("[^a-zA-Z\\d\\s:]");
         for (String str : fields) {
             try {
@@ -135,6 +139,7 @@ public class Consumer {
         return magnetLink;
     }
 
+    // downloads the image at url and saves it locally as a file 'temp.temp'
     public static boolean getImage(String url) {
         try {
             URL imageUrl = new URL(url);

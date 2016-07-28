@@ -6,25 +6,13 @@
 package movieindexer;
 
 import https.Consumer;
-import java.awt.Desktop;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URI;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import java.util.ArrayList;
 import java.util.Optional;
-import java.util.Scanner;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -47,146 +35,150 @@ import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
-import javafx.scene.web.WebView;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class AddMenu extends VBox {
 
-    String id;
-    boolean local;
+    String currentMovieID;
+    boolean isCurrentMovieLocal;
+    TextField movieTitleField, movieOrderTitleField, movieYearField, movieDirectorField;
+    ImageView movieImgView;
+    TextArea movieGenreArea, movieActorsArea, movieScoreArea, moviePlotArea;
+    Button movieAddButton, movieRemButton, movieCancelButton;
+    
+    TextField searchIDField;
+    Button searchButton;
+    
+    TextField listNameField;
+    ChoiceBox listChoiceBox;
+    ObservableList<String> listChoiceBoxOptions;
+    Button listAddButton, listRemButton;
+    //Button imdbLink, torrentLink;
+    //String magnetLink = "";
+    //WebView webview;
 
-    TextField title, orderTitle, idField, listField;
-    Text year, director, score, plot;
-    ImageView imgView;
-    TextArea genre, actors;
-
-    Button searchButton, addButton, remButton, cancelButton;
-    Button addButton_list, remButton_list;
-    Button imdbLink, torrentLink;
-    String magnetLink = "";
-
-    WebView webview;
-
-    TabPane tabs;
-    ChoiceBox choicebox;
-    ObservableList<String> cbOptions;
-    ArrayList<FlowPane> fp;
+    TabPane tabPane;
 
     public AddMenu(TabPane t) {
         super();
-        this.tabs = t;
-        this.fp = new ArrayList();
-
+        this.tabPane = t;
+        
         this.setPadding(new Insets(20, 20, 20, 20));
         GridPane mainGrid = new GridPane();
         mainGrid.add(createSearchGrid(), 0, 0);
         mainGrid.add(createInfoGrid(), 0, 1);
-        mainGrid.add(getTrailerTorrentTab(), 1, 1);
+        mainGrid.add(createListGrid(), 0, 2);
+        //mainGrid.add(getTrailerTorrentTab(), 1, 1);
         this.getChildren().add(mainGrid);
-        local = false;
+        isCurrentMovieLocal = false;
 
         configureSearchButton();
         configureAddButton();
         configureRemButton();
         configureCancelButton();
         configureListButtons(this);
-        configureImdbTorrentButtons();
+        //configureImdbTorrentButtons();
     }
+    
+    /*
+     // configure the IMDB and Torrent buttons
+     private void configureImdbTorrentButtons() {
+     imdbLink.setOnAction(new EventHandler<ActionEvent>() {
+     @Override
+     public void handle(ActionEvent event) {
+     Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
+     if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
+     try {
+     desktop.browse(new URI("http://www.imdb.com/title/" + id + "/"));
+     } catch (Exception e) {
+     e.printStackTrace();
+     }
+     }
 
-    private void configureImdbTorrentButtons() {
-        imdbLink.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent event) {
-                Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
-                if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
-                    try {
-                        desktop.browse(new URI("http://www.imdb.com/title/" + id + "/"));
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
+     }
+     });
 
-            }
-        });
+     torrentLink.setOnAction(new EventHandler<ActionEvent>() {
+     @Override
+     public void handle(ActionEvent event) {
+     Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
+     if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
+     try {
+     desktop.browse(new URI(magnetLink));
+     } catch (Exception e) {
+     e.printStackTrace();
+     }
+     }
 
-        torrentLink.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent event) {
-                Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
-                if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
-                    try {
-                        desktop.browse(new URI(magnetLink));
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
+     }
+     });
+     }
 
-            }
-        });
-    }
+     private GridPane getTrailerTorrentTab() {
+     GridPane infoGrid = new GridPane();
+     infoGrid.setHgap(10);
+     infoGrid.setVgap(10);
+     infoGrid.setPadding(new Insets(10, 10, 10, 10));
 
-    private GridPane getTrailerTorrentTab() {
-        GridPane infoGrid = new GridPane();
-        infoGrid.setHgap(10);
-        infoGrid.setVgap(10);
-        infoGrid.setPadding(new Insets(10, 10, 10, 10));
+     imdbLink = new Button("IMDB");
+     imdbLink.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+     imdbLink.setVisible(false);
+     infoGrid.add(imdbLink, 0, 0);
 
-        imdbLink = new Button("IMDB");
-        imdbLink.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        imdbLink.setVisible(false);
-        infoGrid.add(imdbLink, 0, 0);
+     webview = new WebView();
+     webview.setPrefSize(512, 312);
+     infoGrid.add(webview, 0, 1);
+     webview.setVisible(false);
 
-        webview = new WebView();
-        webview.setPrefSize(512, 312);
-        infoGrid.add(webview, 0, 1);
-        webview.setVisible(false);
+     torrentLink = new Button("Torrent");
+     torrentLink.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+     torrentLink.setVisible(false);
+     infoGrid.add(torrentLink, 0, 2);
 
-        torrentLink = new Button("Torrent");
-        torrentLink.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        torrentLink.setVisible(false);
-        infoGrid.add(torrentLink, 0, 2);
+     return infoGrid;
+     }
+     */
 
-        return infoGrid;
-    }
-
+    // adds new tab <am> named <t> either to 'start' or to 'before last' positions
     private void addNewTab(String t, AddMenu am, boolean startOfList) {
         if (!JsonManager.createEmptyJson(t)) {
             return;
         }
 
-        cbOptions.add(t);
+        listChoiceBoxOptions.add(t);
 
-        ImdbList ml = new ImdbList(tabs, am, t);
-        if (startOfList || tabs.getTabs().size() == 0) {
-            tabs.getTabs().add(ml);
+        ImdbList ml = new ImdbList(tabPane, am, t);
+        if (startOfList || tabPane.getTabs().size() == 0) {
+            tabPane.getTabs().add(ml);
         } else {
-            tabs.getTabs().add(tabs.getTabs().size() - 1, ml);
+            tabPane.getTabs().add(tabPane.getTabs().size() - 1, ml);
         }
     }
 
     public void updateList() {
-        for (Tab tab : tabs.getTabs()) {
+        for (Tab tab : tabPane.getTabs()) {
             if (tab instanceof ImdbList) {
-                cbOptions.add(tab.getText());
+                listChoiceBoxOptions.add(tab.getText());
             }
         }
 
-        if (cbOptions.size() == 0) {
-            addNewTab("Movies", this, true);
-        }
+        /*if (cbOptions.size() == 0) {
+         addNewTab("Movies", this, true);
+         }*/
+        listChoiceBox.getSelectionModel().select(0);
 
-        choicebox.getSelectionModel().select(0);
-
-        if (cbOptions.size() == 1) {
-            remButton_list.setDisable(true);
+        if (listChoiceBoxOptions.size() == 1) {
+            listRemButton.setDisable(true);
         }
     }
 
@@ -196,7 +188,7 @@ public class AddMenu extends VBox {
         title2.setWrappingWidth(200);
         title2.textAlignmentProperty().set(TextAlignment.CENTER);
 
-        Image img = new Image("file:" + id + ".jpg");
+        Image img = new Image("file:" + currentMovieID + ".jpg");
         ImageView imgView2 = new ImageView(img);
         imgView2.setFitWidth(200);
         imgView2.setFitHeight(300);
@@ -221,48 +213,41 @@ public class AddMenu extends VBox {
             public void handle(MouseEvent event) {
                 String id = ((Text) vbox.getChildren().get(2)).getText();
                 event.consume();
-                MovieIndexer.selectTab(tabs, "Add");
+                MovieIndexer.selectTab(tabPane, "Add");
 
-                am.id = id;
+                am.currentMovieID = id;
                 am.searchLocally(name);
-                am.addButton.setVisible(true);
-                am.addButton.setText("Update");
-                am.remButton.setVisible(true);
-                am.choicebox.getSelectionModel().select(am.cbOptions.indexOf(name));
+                am.movieAddButton.setVisible(true);
+                am.movieAddButton.setText("Update");
+                am.movieRemButton.setVisible(true);
+                am.listChoiceBox.getSelectionModel().select(am.listChoiceBoxOptions.indexOf(name));
             }
         });
         return vbox;
     }
 
     public boolean searchLocally(String fName) {
-        /*JSONArray list;
-
-         try (Scanner fin = new Scanner(new File(fName + ".json")).useDelimiter("\\Z")) {
-         String content = fin.next();
-         list = new JSONObject(content).getJSONArray("movies");
-         } catch (Exception ex) {
-         System.out.println(".json file not found.");
-         list = new JSONArray();
-         }*/
         JSONArray list = JsonManager.readJson(fName);
 
         for (int i = 0; i < list.length(); i++) {
             JSONObject curr = list.getJSONObject(i);
-            if (curr.getString("id").equals(id)) {
-                title.setText(curr.getString("title"));
-                year.setText(curr.getString("year"));
-                director.setText(curr.getString("director"));
-                genre.setText(curr.getString("genre"));
-                actors.setText(curr.getString("actors"));
-                score.setText(curr.getString("score"));
-                orderTitle.setText(curr.getString("orderTitle"));
-                plot.setText("ID: " + id);
-                imgView.setImage(new Image("file:" + id + ".jpg"));
-                local = true;
+            if (curr.getString("id").equals(currentMovieID)) {
+                movieTitleField.setText(curr.getString("title"));
+                movieYearField.setText(curr.getString("year"));
+                movieDirectorField.setText(curr.getString("director"));
+                movieGenreArea.setText(curr.getString("genre"));
+                movieActorsArea.setText(curr.getString("actors"));
+                movieScoreArea.setText(curr.getString("score"));
+                movieOrderTitleField.setText(curr.getString("orderTitle"));
+                moviePlotArea.setText("ID: " + currentMovieID);
+                moviePlotArea.setEditable(false);
+                setInfoGridVisible(true);
+                movieImgView.setImage(new Image("file:" + currentMovieID + ".jpg"));
+                isCurrentMovieLocal = true;
                 return true;
             }
         }
-        local = false;
+        isCurrentMovieLocal = false;
         return false;
     }
 
@@ -270,71 +255,95 @@ public class AddMenu extends VBox {
         GridPane infoGrid = new GridPane();
         infoGrid.setHgap(10);
         infoGrid.setVgap(10);
+        infoGrid.getColumnConstraints().add(new ColumnConstraints(200)); // column 1 is 100 wide
+        infoGrid.getColumnConstraints().add(new ColumnConstraints(200));
+        infoGrid.getColumnConstraints().add(new ColumnConstraints(200));
         infoGrid.setPadding(new Insets(10, 10, 10, 10));
 
-        title = new TextField();
-        infoGrid.add(title, 0, 1);
-        year = new Text();
-        year.setFont(Font.font("Arial", FontWeight.NORMAL, 20));
-        infoGrid.add(year, 1, 1);
-        director = new Text();
-        director.setFont(Font.font("Arial", FontWeight.NORMAL, 20));
-        infoGrid.add(director, 2, 1);
+        movieTitleField = new TextField();
+        infoGrid.add(movieTitleField, 0, 1);
+        movieYearField = new TextField();
+        infoGrid.add(movieYearField, 1, 1);
+        movieDirectorField = new TextField();
+        infoGrid.add(movieDirectorField, 2, 1);
 
-        genre = new TextArea();
-        genre.setPrefSize(300, 100);
-        infoGrid.add(genre, 0, 2);
-        actors = new TextArea();
-        actors.setPrefSize(200, 100);
-        infoGrid.add(actors, 1, 2);
-        score = new Text();
-        score.setFont(Font.font("Arial", FontWeight.NORMAL, 20));
-        infoGrid.add(score, 2, 2);
+        movieOrderTitleField = new TextField();
+        infoGrid.add(movieOrderTitleField, 0, 2);
+        movieGenreArea = new TextArea();
+        movieGenreArea.setPrefSize(300, 100);
+        movieGenreArea.setWrapText(true);
+        infoGrid.add(movieGenreArea, 1, 2);
+        movieScoreArea = new TextArea();
+        infoGrid.add(movieScoreArea, 2, 2);
 
-        plot = new Text();
-        plot.setWrappingWidth(300);
+        moviePlotArea = new TextArea();
+        moviePlotArea.setWrapText(true);
+        moviePlotArea.setEditable(false);
+        infoGrid.add(moviePlotArea, 0, 3);
 
-        infoGrid.add(plot, 0, 3);
+        movieImgView = new ImageView();
+        movieImgView.setFitWidth(200);
+        movieImgView.setFitHeight(300);
+        movieImgView.setPreserveRatio(true);
+        infoGrid.add(movieImgView, 1, 3);
+        movieActorsArea = new TextArea();
+        movieActorsArea.setPrefSize(200, 100);
+        movieActorsArea.setWrapText(true);
+        infoGrid.add(movieActorsArea, 2, 3);
 
-        imgView = new ImageView();
-        imgView.setFitWidth(200);
-        imgView.setFitHeight(300);
-        imgView.setPreserveRatio(true);
-        infoGrid.add(imgView, 1, 3);
-        orderTitle = new TextField();
-        infoGrid.add(orderTitle, 2, 3);
+        setInfoGridVisible(false);
 
-        addButton = new Button("Add");
-        addButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        addButton.setVisible(false);
-        infoGrid.add(addButton, 0, 4);
+        movieAddButton = new Button("Add");
+        movieAddButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        movieAddButton.setVisible(false);
+        movieAddButton.setMaxWidth(Double.MAX_VALUE);
+        infoGrid.add(movieAddButton, 0, 4);
 
-        remButton = new Button("Remove");
-        remButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        remButton.setVisible(false);
-        infoGrid.add(remButton, 0, 5);
+        movieRemButton = new Button("Remove");
+        movieRemButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        movieRemButton.setVisible(false);
+        movieRemButton.setMaxWidth(Double.MAX_VALUE);
+        infoGrid.add(movieRemButton, 1, 4);
 
-        cancelButton = new Button("Cancel");
-        cancelButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        cancelButton.setVisible(true);
-        infoGrid.add(cancelButton, 0, 6);
+        movieCancelButton = new Button("Cancel");
+        movieCancelButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        movieCancelButton.setVisible(true);
+        movieCancelButton.setMaxWidth(Double.MAX_VALUE);
+        infoGrid.add(movieCancelButton, 2, 4);
 
-        cbOptions = FXCollections.observableArrayList();
-        choicebox = new ChoiceBox(cbOptions);
-        infoGrid.add(choicebox, 2, 4);
+        return infoGrid;
+    }
 
-        remButton_list = new Button("Remove List");
-        remButton_list.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        remButton_list.setVisible(true);
-        infoGrid.add(remButton_list, 2, 5);
+    public final GridPane createListGrid() {
+        GridPane infoGrid = new GridPane();
+        infoGrid.setHgap(10);
+        infoGrid.setVgap(10);
+        ColumnConstraints column0 = new ColumnConstraints(290);
+        ColumnConstraints column1 = new ColumnConstraints(20);
+        ColumnConstraints column2 = new ColumnConstraints(290);
+        infoGrid.getColumnConstraints().addAll(column0, column1, column2);
+        infoGrid.setPadding(new Insets(10, 10, 10, 10));
 
-        listField = new TextField();
-        infoGrid.add(listField, 1, 4);
+        listChoiceBoxOptions = FXCollections.observableArrayList();
+        listChoiceBox = new ChoiceBox(listChoiceBoxOptions);
+        listChoiceBox.setMaxWidth(Double.MAX_VALUE);
+        infoGrid.add(listChoiceBox, 2, 0);
 
-        addButton_list = new Button("Add List");
-        addButton_list.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        addButton_list.setVisible(true);
-        infoGrid.add(addButton_list, 1, 5);
+        listRemButton = new Button("Remove List");
+        listRemButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        listRemButton.setVisible(true);
+        listRemButton.setMaxWidth(Double.MAX_VALUE);
+        infoGrid.add(listRemButton, 2, 1);
+
+        listNameField = new TextField();
+        listNameField.setMaxWidth(Double.MAX_VALUE);
+        infoGrid.add(listNameField, 0, 0);
+
+        listAddButton = new Button("Add List");
+        listAddButton.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        listAddButton.setVisible(true);
+        listAddButton.setMaxWidth(Double.MAX_VALUE);
+        infoGrid.add(listAddButton, 0, 1);
 
         return infoGrid;
     }
@@ -343,6 +352,11 @@ public class AddMenu extends VBox {
         GridPane searchGrid = new GridPane();
         searchGrid.setHgap(10);
         searchGrid.setVgap(10);
+        ColumnConstraints column0 = new ColumnConstraints(50);
+        ColumnConstraints column1 = new ColumnConstraints(100, 100, Double.MAX_VALUE);
+        column1.setHgrow(Priority.ALWAYS);
+        ColumnConstraints column2 = new ColumnConstraints(100);
+        searchGrid.getColumnConstraints().addAll(column0, column1, column2); // first column gets any extra width
         searchGrid.setPadding(new Insets(10, 10, 10, 10));
 
         // Title in column 1, row 1
@@ -351,10 +365,11 @@ public class AddMenu extends VBox {
         searchGrid.add(category, 0, 0);
 
         // Title in column 2, row 1
-        idField = new TextField();
-        searchGrid.add(idField, 1, 0);
+        searchIDField = new TextField();
+        searchGrid.add(searchIDField, 1, 0);
 
         searchButton = new Button("Search");
+        searchButton.setMaxWidth(Double.MAX_VALUE);
         searchGrid.add(searchButton, 2, 0);
 
         return searchGrid;
@@ -364,50 +379,59 @@ public class AddMenu extends VBox {
         Task<Integer> task = new Task<Integer>() {
             @Override
             protected Integer call() throws Exception {
+                // disable search button
                 Platform.runLater(() -> {
                     searchButton.setDisable(true);
                     searchButton.setText("Searching...");
                 });
-                id = idField.getText();
-                if (searchLocally(choicebox.getSelectionModel().getSelectedItem().toString())) {
+
+                // search locally
+                currentMovieID = searchIDField.getText();
+                if (searchLocally(listChoiceBox.getSelectionModel().getSelectedItem().toString())) {
                     Platform.runLater(() -> {
-                        addButton.setVisible(true);
-                        addButton.setText("Update");
-                        remButton.setVisible(true);
-                        local = true;
+                        movieAddButton.setVisible(true);
+                        movieAddButton.setText("Update");
+                        movieRemButton.setVisible(true);
+                        isCurrentMovieLocal = true;
 
                         searchButton.setDisable(false);
                         searchButton.setText("Search");
                     });
                     return -1;
                 }
-                local = false;
-                String html = Consumer.getJSON("http://www.omdbapi.com/?i=" + idField.getText() + "&plot=short&r=json");
+
+                // if not local, then search on imdb
+                isCurrentMovieLocal = false;
+                String html = Consumer.getJSON("http://www.omdbapi.com/?i=" + searchIDField.getText() + "&plot=short&r=json");
                 JSONObject obj = new JSONObject(html);
 
+                // if found on IMDB, fill fields
                 if (!html.equals("{}") && "True".equals(obj.getString("Response"))) {
-                    id = obj.getString("imdbID");
+                    currentMovieID = obj.getString("imdbID");
                     Platform.runLater(() -> {
-                        title.setText(obj.getString("Title"));
+                        movieTitleField.setText(obj.getString("Title"));
+
                         if (obj.getString("Title").toLowerCase().startsWith("the ")) {
-                            orderTitle.setText(obj.getString("Title").substring(4).toLowerCase());
+                            movieOrderTitleField.setText(obj.getString("Title").substring(4).toLowerCase());
                         } else {
-                            orderTitle.setText(obj.getString("Title").toLowerCase());
+                            movieOrderTitleField.setText(obj.getString("Title").toLowerCase());
                         }
                         String tempYear = obj.getString("Year").replaceAll("\\D+", "");;
                         if (tempYear.length() > 4) {
                             tempYear = tempYear.substring(0, 4) + "-" + tempYear.substring(tempYear.length() - 4, tempYear.length());
                         }
-                        year.setText(tempYear);
+                        movieYearField.setText(tempYear);
                         if (obj.getString("imdbRating").equals("N/A") || obj.getString("Metascore").equals("N/A")) {
-                            score.setText("N/A\nN/A");
+                            movieScoreArea.setText("N/A\nN/A");
                         } else {
-                            score.setText(obj.getString("imdbRating") + "/10\n" + obj.getString("Metascore") + "/100");
+                            movieScoreArea.setText(obj.getString("imdbRating") + "/10\n" + obj.getString("Metascore") + "/100");
                         }
-                        genre.setText(obj.getString("Genre").replaceAll(", ", "\n"));
-                        actors.setText(obj.getString("Actors").replaceAll(", ", "\n"));
-                        plot.setText(obj.getString("Plot"));
-                        director.setText(obj.getString("Director"));
+                        movieGenreArea.setText(obj.getString("Genre").replaceAll(", ", "\n"));
+                        movieActorsArea.setText(obj.getString("Actors").replaceAll(", ", "\n"));
+                        moviePlotArea.setText(obj.getString("Plot"));
+                        movieDirectorField.setText(obj.getString("Director"));
+
+                        setInfoGridVisible(true);
                     });
                     if (obj.getString("Poster").equals("N/A") || !Consumer.getImage(obj.getString("Poster"))) {
                         try {
@@ -418,33 +442,35 @@ public class AddMenu extends VBox {
                         }
                     }
                     Platform.runLater(() -> {
-                        imgView.setImage(new Image("file:temp.temp"));
+                        movieImgView.setImage(new Image("file:temp.temp"));
 
-                        addButton.setText("Add");
-                        addButton.setVisible(true);
-                        remButton.setVisible(false);
+                        movieAddButton.setText("Add");
+                        movieAddButton.setVisible(true);
+                        movieRemButton.setVisible(false);
 
-                       /* imdbLink.setVisible(true);
-                        torrentLink.setVisible(true);
-                        webview.setVisible(true);
-                        //webview.getEngine().setUserAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11");
-                        webview.getEngine().load("https://www.youtube.com/embed/"
-                                + Consumer.getYoutubeID(title.getText(), year.getText()));
-                        magnetLink = Consumer.getMagnetLink(title.getText(), year.getText());
-                        if (magnetLink == null) {
-                            torrentLink.setVisible(false);
-                        }*/
+                        /* imdbLink.setVisible(true);
+                         torrentLink.setVisible(true);
+                         webview.setVisible(true);
+                         //webview.getEngine().setUserAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11");
+                         webview.getEngine().load("https://www.youtube.com/embed/"
+                         + Consumer.getYoutubeID(title.getText(), year.getText()));
+                         magnetLink = Consumer.getMagnetLink(title.getText(), year.getText());
+                         if (magnetLink == null) {
+                         torrentLink.setVisible(false);
+                         }*/
                     });
                 } else {
                     Platform.runLater(() -> {
-                        imdbLink.setVisible(false);
-                        webview.setVisible(false);
-                        torrentLink.setVisible(false);
-                        addButton.setVisible(false);
-                        remButton.setVisible(false);
+                        //imdbLink.setVisible(false);
+                        //webview.setVisible(false);
+                        //torrentLink.setVisible(false);
+                        movieAddButton.setVisible(false);
+                        movieRemButton.setVisible(false);
                     });
-                    id = null;
+                    currentMovieID = null;
                 }
+
+                // enable search button again
                 Platform.runLater(() -> {
                     searchButton.setDisable(false);
                     searchButton.setText("Search");
@@ -460,6 +486,18 @@ public class AddMenu extends VBox {
         return th;
     }
 
+    public final void setInfoGridVisible(boolean vis) {
+        movieTitleField.setVisible(vis);
+        movieOrderTitleField.setVisible(vis);
+        movieYearField.setVisible(vis);
+        movieDirectorField.setVisible(vis);
+        movieGenreArea.setVisible(vis);
+        movieActorsArea.setVisible(vis);
+        movieScoreArea.setVisible(vis);
+        moviePlotArea.setVisible(vis);
+
+    }
+
     public final void configureSearchButton() {
         searchButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
@@ -470,21 +508,21 @@ public class AddMenu extends VBox {
     }
 
     public final void configureAddButton() {
-        addButton.setOnAction(new EventHandler<ActionEvent>() {
+        movieAddButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                String listName = choicebox.getSelectionModel().getSelectedItem().toString();
-                ImdbList tab = ((ImdbList) MovieIndexer.getTabByName(tabs, listName));
-                int[] indexes = tab.addMovie(local, new String[]{
-                    title.getText().replaceAll("\"", ""), year.getText(), director.getText(), genre.getText().replaceAll("\"", ""),
-                    actors.getText().replaceAll("\"", ""), score.getText(), orderTitle.getText(), id});
+                String listName = listChoiceBox.getSelectionModel().getSelectedItem().toString();
+                ImdbList tab = ((ImdbList) MovieIndexer.getTabByName(tabPane, listName));
+                int[] indexes = tab.addMovie(isCurrentMovieLocal, new String[]{
+                    movieTitleField.getText().replaceAll("\"", ""), movieYearField.getText(), movieDirectorField.getText(), movieGenreArea.getText().replaceAll("\"", ""),
+                    movieActorsArea.getText().replaceAll("\"", ""), movieScoreArea.getText(), movieOrderTitleField.getText(), currentMovieID});
 
                 // Reset GUI
                 clearMenu();
 
-                tabs.getSelectionModel().select(tab);
-                int moviesPerRow = (int) (tabs.getWidth() - 24) / (200 + 4);
-                ((ImdbList) tabs.getSelectionModel().getSelectedItem()).scroller.setVvalue(
+                tabPane.getSelectionModel().select(tab);
+                int moviesPerRow = (int) (tabPane.getWidth() - 24) / (200 + 4);
+                ((ImdbList) tabPane.getSelectionModel().getSelectedItem()).scroller.setVvalue(
                         ((indexes[0] / moviesPerRow)) / ((Math.ceil(indexes[1] * 1.0 / moviesPerRow)) - 1));
 
             }
@@ -492,74 +530,75 @@ public class AddMenu extends VBox {
     }
 
     public final void configureRemButton() {
-        remButton.setOnAction(new EventHandler<ActionEvent>() {
+        movieRemButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                String listName = choicebox.getSelectionModel().getSelectedItem().toString();
-                ImdbList tab = ((ImdbList) MovieIndexer.getTabByName(tabs, listName));
-                tab.removeMovie(id);
+                String listName = listChoiceBox.getSelectionModel().getSelectedItem().toString();
+                ImdbList tab = ((ImdbList) MovieIndexer.getTabByName(tabPane, listName));
+                tab.removeMovie(currentMovieID);
 
                 // only delete image if its not used anywhere else
                 int counter = 0;
-                for (String tabName : cbOptions) {
+                for (String tabName : listChoiceBoxOptions) {
                     if (searchLocally(tabName)) {
                         counter++;
                         break;
                     }
                 }
                 if (counter == 0) {
-                    File photo = new File(id + ".jpg");
+                    File photo = new File(currentMovieID + ".jpg");
                     if (photo.exists()) {
                         photo.delete();
                     }
                 }
 
                 clearMenu();
-                tabs.getSelectionModel().select(tab);
+                tabPane.getSelectionModel().select(tab);
             }
         });
     }
 
     public void clearMenu() {
-        title.setText("");
-        year.setText("");
-        director.setText("");
-        genre.setText("");
-        actors.setText("");
-        score.setText("");
-        orderTitle.setText("");
-        plot.setText("");
+        movieTitleField.setText("");
+        movieYearField.setText("");
+        movieDirectorField.setText("");
+        movieGenreArea.setText("");
+        movieActorsArea.setText("");
+        movieScoreArea.setText("");
+        movieOrderTitleField.setText("");
+        moviePlotArea.setText("");
 
-        id = null;
-        imgView.setImage(null);
-        addButton.setText("Add");
-        addButton.setVisible(false);
-        remButton.setVisible(false);
+        currentMovieID = null;
+        movieImgView.setImage(null);
+        movieAddButton.setText("Add");
+        movieAddButton.setVisible(false);
+        movieRemButton.setVisible(false);
 
-        imdbLink.setVisible(false);
-        webview.setVisible(false);
+        setInfoGridVisible(false);
+        //imdbLink.setVisible(false);
+        //webview.setVisible(false);
     }
 
     public final void configureCancelButton() {
-        cancelButton.setOnAction(new EventHandler<ActionEvent>() {
+        movieCancelButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
                 clearMenu();
-                MovieIndexer.selectTab(tabs, choicebox.getSelectionModel().getSelectedItem().toString());
+                MovieIndexer.selectTab(tabPane, listChoiceBox.getSelectionModel().getSelectedItem().toString());
             }
         });
     }
 
     public final void configureListButtons(AddMenu am) {
-        addButton_list.setOnAction(new EventHandler<ActionEvent>() {
+        listAddButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                addNewTab(listField.getText(), am, false);
-                listField.clear();
+                addNewTab(listNameField.getText(), am, false);
+                listNameField.clear();
             }
         });
 
-        remButton_list.setOnAction(new EventHandler<ActionEvent>() {
+        listRemButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
                 Alert alert = new Alert(AlertType.CONFIRMATION);
@@ -570,15 +609,15 @@ public class AddMenu extends VBox {
                 Optional<ButtonType> result = alert.showAndWait();
                 if (result.get() == ButtonType.OK) {
                     // ... user chose OK
-                    JsonManager.removeJson(choicebox.getSelectionModel().getSelectedItem().toString());
+                    JsonManager.removeJson(listChoiceBox.getSelectionModel().getSelectedItem().toString());
 
-                    String listName = choicebox.getSelectionModel().getSelectedItem().toString();
-                    tabs.getTabs().remove(MovieIndexer.getTabByName(tabs, listName));
-                    cbOptions.remove(listName);
-                    choicebox.getSelectionModel().select(0);
+                    String listName = listChoiceBox.getSelectionModel().getSelectedItem().toString();
+                    tabPane.getTabs().remove(MovieIndexer.getTabByName(tabPane, listName));
+                    listChoiceBoxOptions.remove(listName);
+                    listChoiceBox.getSelectionModel().select(0);
 
-                    if (cbOptions.size() == 1) {
-                        remButton_list.setDisable(true);
+                    if (listChoiceBoxOptions.size() == 1) {
+                        listRemButton.setDisable(true);
                     }
                 } else {
                     // ... user chose CANCEL or closed the dialog
@@ -588,28 +627,27 @@ public class AddMenu extends VBox {
             }
         });
 
-        choicebox.getSelectionModel().selectedIndexProperty().addListener(
-                new ChangeListener<Number>() {
-                    @Override
-                    public void changed(ObservableValue ov, Number val, Number newVal) {
-                        if (newVal.intValue() < 0) {
-                            return;
-                        }
-                        if (addButton.visibleProperty().get()) {
-                            if (searchLocally(cbOptions.get(newVal.intValue()))) {
-                                addButton.setVisible(true);
-                                addButton.setText("Update");
-                                remButton.setVisible(true);
-                                local = true;
-                            } else {
-                                addButton.setVisible(true);
-                                addButton.setText("Add");
-                                remButton.setVisible(false);
-                                local = false;
-                            }
-                        }
+        listChoiceBox.getSelectionModel().selectedIndexProperty().addListener(new ChangeListener<Number>() {
+            @Override
+            public void changed(ObservableValue ov, Number val, Number newVal) {
+                if (newVal.intValue() < 0) {
+                    return;
+                }
+                if (movieAddButton.visibleProperty().get()) {
+                    if (searchLocally(listChoiceBoxOptions.get(newVal.intValue()))) {
+                        movieAddButton.setVisible(true);
+                        movieAddButton.setText("Update");
+                        movieRemButton.setVisible(true);
+                        isCurrentMovieLocal = true;
+                    } else {
+                        movieAddButton.setVisible(true);
+                        movieAddButton.setText("Add");
+                        movieRemButton.setVisible(false);
+                        isCurrentMovieLocal = false;
                     }
-                });
+                }
+            }
+        });
     }
 
 }

@@ -4,9 +4,6 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-//import java.util.Scanner;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.application.Preloader;
@@ -33,7 +30,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
-import javafx.stage.Screen;
 import javafx.stage.Stage;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -47,8 +43,7 @@ public class MovieIndexer extends Application {
     private AddMenu am;
 
     // something for maximizing.. ignore
-    private int retardedCounter = 0;
-
+    //private int retardedCounter = 0;
     TextField searchField;
 
     @Override
@@ -117,6 +112,7 @@ public class MovieIndexer extends Application {
         hbButtons.setPadding(new Insets(2));
 
         Button scrapeBtn = new Button();
+        scrapeBtn.setDisable(true);
         scrapeBtn.setText("Update All");
         scrapeBtn.setOnAction(new EventHandler<ActionEvent>() {
             public void handle(ActionEvent event) {
@@ -156,16 +152,11 @@ public class MovieIndexer extends Application {
         primaryStage.widthProperty().addListener(new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> ov, Number t, Number t1) {
-                if (retardedCounter != 1 && retardedCounter != 2) {
-                    for (Tab tab : tabs.getTabs()) {
-                        //System.out.println("resizing " + tab.getText()+" TO "+(tabs.getWidth() - 24));
-                        if (tab instanceof ImdbList) {
-                            //System.out.println("bam");
-                            ((ImdbList) tab).flow.setPrefWrapLength(tabs.getWidth() - 24);
-                        }
+                for (Tab tab : tabs.getTabs()) {
+                    if (tab instanceof ImdbList) {
+                        ((ImdbList) tab).flow.setPrefWrapLength(t1.intValue() - 24);
                     }
                 }
-                retardedCounter++;
             }
         });
 
@@ -173,16 +164,9 @@ public class MovieIndexer extends Application {
         primaryStage.maximizedProperty().addListener(new ChangeListener<Boolean>() {
             @Override
             public void changed(ObservableValue<? extends Boolean> ov, Boolean t, Boolean t1) {
-                if (!t1) {
-                    tabs.resize(856, 600);
+                if (!ov.getValue()) {
                     primaryStage.setWidth(856);
                     primaryStage.setHeight(600);
-                    primaryStage.setX(10);
-                    primaryStage.setY(10);
-                } else {
-                    Screen screen = Screen.getPrimary();
-                    Rectangle2D bounds = screen.getVisualBounds();
-                    tabs.resize(bounds.getMaxX(), bounds.getMaxY());
                 }
             }
         });
@@ -197,9 +181,9 @@ public class MovieIndexer extends Application {
                             // Tabs
                             am.updateList();
                             tabs.getTabs().add(addTab);
-
-                            notifyPreloader(new Preloader.StateChangeNotification(Type.BEFORE_START));
                             primaryStage.show();
+                            notifyPreloader(new Preloader.StateChangeNotification(Type.BEFORE_START));
+                            
                         }
                     });
                 }
@@ -209,7 +193,6 @@ public class MovieIndexer extends Application {
     }
 
     public static void main(String[] args) throws Exception {
-
         System.setProperty("file.encoding", "UTF-8");
         Field charset = Charset.class.getDeclaredField("defaultCharset");
         charset.setAccessible(true);
