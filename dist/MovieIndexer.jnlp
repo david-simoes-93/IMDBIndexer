@@ -8,7 +8,7 @@
   </information>
   <resources>
     <j2se version="1.6+" href="http://java.sun.com/products/autodl/j2se"/>
-    <jar href="MovieIndexer.jar" size="44220" download="eager" />
+    <jar href="MovieIndexer.jar" size="47516" download="eager" />
     <jar href="lib/JSON.jar" size="92856" download="eager" />
   </resources>
   <applet-desc  width="800" height="600" main-class="com.javafx.main.NoJavaFXFallback"  name="MovieIndexer" >

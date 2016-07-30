@@ -55,10 +55,10 @@ public class AddMenu extends VBox {
     ImageView movieImgView;
     TextArea movieGenreArea, movieActorsArea, movieScoreArea, moviePlotArea;
     Button movieAddButton, movieRemButton, movieCancelButton;
-    
+
     TextField searchIDField;
     Button searchButton;
-    
+
     TextField listNameField;
     ChoiceBox listChoiceBox;
     ObservableList<String> listChoiceBoxOptions;
@@ -72,7 +72,7 @@ public class AddMenu extends VBox {
     public AddMenu(TabPane t) {
         super();
         this.tabPane = t;
-        
+
         this.setPadding(new Insets(20, 20, 20, 20));
         GridPane mainGrid = new GridPane();
         mainGrid.add(createSearchGrid(), 0, 0);
@@ -89,7 +89,7 @@ public class AddMenu extends VBox {
         configureListButtons(this);
         //configureImdbTorrentButtons();
     }
-    
+
     /*
      // configure the IMDB and Torrent buttons
      private void configureImdbTorrentButtons() {
@@ -148,7 +148,6 @@ public class AddMenu extends VBox {
      return infoGrid;
      }
      */
-
     // adds new tab <am> named <t> either to 'start' or to 'before last' positions
     private void addNewTab(String t, AddMenu am, boolean startOfList) {
         if (!JsonManager.createEmptyJson(t)) {
@@ -375,7 +374,76 @@ public class AddMenu extends VBox {
         return searchGrid;
     }
 
-    private Thread searchThread() {
+    private Thread searchUserRatingThread() {
+
+        Task<Integer> task = new Task<Integer>() {
+            @Override
+            protected Integer call() throws Exception {
+                // disable search button
+                Platform.runLater(() -> {
+                    searchButton.setDisable(true);
+                    searchButton.setText("Searching...");
+                });
+                
+                String html = Consumer.getJSON("https://api.import.io/store/connector/b11a1cf2-3efa-4cff-971f-52b939d7cba7/_query?input=webpage/url:"
+                        + "http%3A%2F%2Fwww.imdb.com%2Fuser%2F" + searchIDField.getText() + "%2Fratings&&_apikey=4911226d82c84f2f9e06e04"
+                        + "bffad812e3ee3dd322ae4d7309f3751ce6913e2da924f27aabd67c1a8d8aee488dc392b80c9de4885cd3d16c6d630151818526d3b"
+                        + "5b50b3d57bcf816bfa015eeeb4989a1f");
+                JSONObject obj = new JSONObject(html);
+                
+                System.out.println(html);
+                // if found on IMDB, fill fields
+                if (!html.equals("{}")) {
+                    System.out.println("asd2");
+                    JSONArray results = obj.getJSONArray("results");
+                    String listName = listChoiceBox.getSelectionModel().getSelectedItem().toString();
+                    ImdbList tab = ((ImdbList) MovieIndexer.getTabByName(tabPane, listName));
+
+                    for (Object o : results) {
+                        System.out.println("asd4");
+                        JSONObject jsonO = (JSONObject) o;
+                        String[] fields = jsonO.getString("info_link").split("/");
+                        System.out.println(fields[fields.length - 1]);
+                        searchIDField.setText(fields[fields.length - 1]);
+                        searchMovieIdThread().start();
+                        searchMovieIdThread().join();
+                        System.out.println("asd5");
+                        tab.addMovie(isCurrentMovieLocal, new String[]{
+                            movieTitleField.getText().replaceAll("\"", ""), movieYearField.getText(), movieDirectorField.getText(), movieGenreArea.getText().replaceAll("\"", ""),
+                            movieActorsArea.getText().replaceAll("\"", ""), movieScoreArea.getText(), movieOrderTitleField.getText(), currentMovieID});
+                    }
+
+                    // Reset GUI
+                    clearMenu();
+
+                    tabPane.getSelectionModel().select(tab);
+                    ((ImdbList) tabPane.getSelectionModel().getSelectedItem()).scroller.setVvalue(0);
+                } else {
+                    System.out.println("asd3");
+                    Platform.runLater(() -> {
+                        movieAddButton.setVisible(false);
+                        movieRemButton.setVisible(false);
+                    });
+                    currentMovieID = null;
+                }
+                System.out.println("asd4");
+                // enable search button again
+                Platform.runLater(() -> {
+                    searchButton.setDisable(false);
+                    searchButton.setText("Search");
+                });
+
+                return 0;
+            }
+        };
+
+        Thread th = new Thread(task);
+        th.setDaemon(true);
+
+        return th;
+    }
+
+    private Thread searchMovieIdThread() {
         Task<Integer> task = new Task<Integer>() {
             @Override
             protected Integer call() throws Exception {
@@ -502,7 +570,11 @@ public class AddMenu extends VBox {
         searchButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                searchThread().start();
+                if (searchIDField.getText().startsWith("ur")) {
+                    searchUserRatingThread().start();
+                } else {
+                    searchMovieIdThread().start();
+                }
             }
         });
     }
