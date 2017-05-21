@@ -207,6 +207,7 @@ public class MovieIndexer extends Application {
         String fName = ((ImdbList) tabs.getSelectionModel().getSelectedItem()).jsonName;
         JSONArray list = JsonManager.readJson(fName);
 
+
         ResultsList results = new ResultsList(tabs, am, fName);
         results.flow.setPrefWidth(tabs.getWidth() - 24);
 

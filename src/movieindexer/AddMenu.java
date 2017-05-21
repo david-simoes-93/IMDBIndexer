@@ -470,11 +470,123 @@ public class AddMenu extends VBox {
 
                 // if not local, then search on imdb
                 isCurrentMovieLocal = false;
-                String html = Consumer.getJSON("http://www.omdbapi.com/?i=" + searchIDField.getText() + "&plot=short&r=json");
-                JSONObject obj = new JSONObject(html);
 
-                // if found on IMDB, fill fields
-                if (!html.equals("{}") && "True".equals(obj.getString("Response"))) {
+
+                //first -> http://api.themoviedb.org/3/find/tt0944947?api_key=81ca906cd9b89813a6365ca35ca87664&external_source=imdb_id
+                //then  -> https://api.themoviedb.org/3/tv/1399?api_key=81ca906cd9b89813a6365ca35ca87664
+
+                String get_type = Consumer.getJSON("http://api.themoviedb.org/3/find/"+ searchIDField.getText() +"?api_key=81ca906cd9b89813a6365ca35ca87664&external_source=imdb_id");
+                JSONObject obj_type = new JSONObject(get_type);
+                int moviedb_id = 0;
+                final boolean movie;
+                final boolean tv_show;
+                if(obj_type.getJSONArray("movie_results").length()!=0){
+                    movie = true;
+                    tv_show = false;
+                    moviedb_id = obj_type.getJSONArray("movie_results").getJSONObject(0).getInt("id");
+                }else if(obj_type.getJSONArray("tv_results").length()!=0){
+                    movie = false;
+                    tv_show = true;
+                    moviedb_id = obj_type.getJSONArray("tv_results").getJSONObject(0).getInt("id");
+                }else{
+                    movie = false;
+                    tv_show = false;
+                }
+
+                if (movie || tv_show) {
+                    //String html = Consumer.getJSON("http://www.omdbapi.com/?i=" + searchIDField.getText() + "&plot=short&r=json");
+                    String html = "";
+                    if(movie)
+                        html = Consumer.getJSON("https://api.themoviedb.org/3/movie/"+ moviedb_id +"?api_key=81ca906cd9b89813a6365ca35ca87664&append_to_response=credits");
+                    else if(tv_show)
+                        html = Consumer.getJSON("https://api.themoviedb.org/3/tv/"+ moviedb_id +"?api_key=81ca906cd9b89813a6365ca35ca87664&append_to_response=credits");
+
+                    JSONObject obj = new JSONObject(html);
+                    System.out.println(html+"\n"+obj.toString());
+
+                    currentMovieID = searchIDField.getText();
+                    Platform.runLater(() -> {
+                        String title_field;
+                        if(movie)
+                            title_field = "title";
+                        else
+                            title_field = "name";
+                        movieTitleField.setText(obj.getString(title_field));
+
+                        if (obj.getString(title_field).toLowerCase().startsWith("the ")) {
+                            movieOrderTitleField.setText(obj.getString(title_field).substring(4).toLowerCase());
+                        } else {
+                            movieOrderTitleField.setText(obj.getString(title_field).toLowerCase());
+                        }
+
+                        if(movie)
+                            movieYearField.setText(obj.getString("release_date").replaceAll("\\D+", "").substring(0, 4));
+                        else{
+                            movieYearField.setText(obj.getString("first_air_date").replaceAll("\\D+", "").substring(0, 4)
+                                    +"-"+
+                                    obj.getString("last_air_date").replaceAll("\\D+", "").substring(0, 4));
+                        }
+
+                        //crashes if field doest exist
+                        if (obj.getDouble("vote_average")==0) {
+                            movieScoreArea.setText("N/A\n");
+                        } else {
+                            movieScoreArea.setText(obj.getDouble("vote_average") + "/10\n");
+                        }
+
+                        String genre_temp = "";
+                        for(Object genre : obj.getJSONArray("genres")){
+                            genre_temp += ((JSONObject)genre).getString("name") + "\n";
+                        }
+                        movieGenreArea.setText(genre_temp);
+                        moviePlotArea.setText(obj.getString("overview"));
+                        JSONObject people_in_the_movie = obj.getJSONObject("credits");
+                        JSONArray cast = people_in_the_movie.getJSONArray("cast");
+
+                        String actors_temp = "";
+                        for(int i=0; i<5 && i<cast.length(); i++){
+                            actors_temp += ((JSONObject)cast.get(i)).getString("name")+"\n";
+                        }
+                        movieActorsArea.setText(actors_temp);
+
+                        String directors_temp = "";
+                        if(movie) {
+                            JSONArray crew = people_in_the_movie.getJSONArray("crew");
+                            for (int i = 0; i < crew.length(); i++) {
+                                if ("Directing".equals(((JSONObject) crew.get(i)).getString("department")))
+                                    if(directors_temp.length()!=0)
+                                        directors_temp+=", ";
+                                    directors_temp += ((JSONObject) crew.get(i)).getString("name");
+                            }
+                        }else{
+                            JSONArray crew = obj.getJSONArray("created_by");
+                            for (int i = 0; i < crew.length(); i++) {
+                                if(directors_temp.length()!=0)
+                                    directors_temp+=", ";
+                                directors_temp += ((JSONObject) crew.get(i)).getString("name") + ", ";
+                            }
+                        }
+                        movieDirectorField.setText(directors_temp);
+
+                        setInfoGridVisible(true);
+                    });
+                    if (obj.getString("poster_path").equals("N/A") || !Consumer.getImage("http://image.tmdb.org/t/p/w342"+obj.getString("poster_path"))) {
+                        try {
+                            Files.copy(Paths.get(new File("").getAbsolutePath() + File.separator + "notFound.jpg"),
+                                    Paths.get(new File("").getAbsolutePath() + File.separator + "temp.temp"), REPLACE_EXISTING);
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                    Platform.runLater(() -> {
+                        movieImgView.setImage(new Image("file:temp.temp"));
+
+                        movieAddButton.setText("Add");
+                        movieAddButton.setVisible(true);
+                        movieRemButton.setVisible(false);
+                    });
+                }
+                /*if (!html.equals("{}") && "True".equals(obj.getString("Response"))) {
                     currentMovieID = obj.getString("imdbID");
                     Platform.runLater(() -> {
                         movieTitleField.setText(obj.getString("Title"));
@@ -525,9 +637,10 @@ public class AddMenu extends VBox {
                          magnetLink = Consumer.getMagnetLink(title.getText(), year.getText());
                          if (magnetLink == null) {
                          torrentLink.setVisible(false);
-                         }*/
+                         }*
                     });
-                } else {
+                }*/
+                else {
                     Platform.runLater(() -> {
                         //imdbLink.setVisible(false);
                         //webview.setVisible(false);
