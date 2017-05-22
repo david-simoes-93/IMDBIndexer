@@ -9,4 +9,3 @@ Class-Path: lib/JSON.jar
 Created-By: JavaFX Packager
 Implementation-Vendor: asus
 Main-Class: movieindexer.MovieIndexer
-

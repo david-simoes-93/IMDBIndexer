@@ -22,7 +22,7 @@ public class FirstPreloader extends Preloader {
         p.setBottom(bar);
         p.setCenter(label);
         bar.setMinWidth(300);
-        System.out.println("herea");
+
         return new Scene(p, 300, 150);
     }
  
@@ -30,7 +30,7 @@ public class FirstPreloader extends Preloader {
         this.stage = stage;
         stage.setScene(createPreloaderScene());
         stage.show();
-        System.out.println("here");
+
     }
  
     @Override
