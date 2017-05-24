@@ -553,10 +553,12 @@ public class AddMenu extends VBox {
                         if(movie) {
                             JSONArray crew = people_in_the_movie.getJSONArray("crew");
                             for (int i = 0; i < crew.length(); i++) {
-                                if ("Directing".equals(((JSONObject) crew.get(i)).getString("department")))
-                                    if(directors_temp.length()!=0)
-                                        directors_temp+=", ";
+                                if ("Directing".equals(((JSONObject) crew.get(i)).getString("department"))) {
+                                    if (directors_temp.length() != 0)
+                                        directors_temp += ", ";
                                     directors_temp += ((JSONObject) crew.get(i)).getString("name");
+                                }
+                                //System.out.println(directors_temp);
                             }
                         }else{
                             JSONArray crew = obj.getJSONArray("created_by");
