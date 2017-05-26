@@ -544,7 +544,7 @@ public class AddMenu extends VBox {
                         JSONArray cast = people_in_the_movie.getJSONArray("cast");
 
                         String actors_temp = "";
-                        for(int i=0; i<5 && i<cast.length(); i++){
+                        for(int i=0; i<10 && i<cast.length(); i++){
                             actors_temp += ((JSONObject)cast.get(i)).getString("name")+"\n";
                         }
                         movieActorsArea.setText(actors_temp);
@@ -553,7 +553,8 @@ public class AddMenu extends VBox {
                         if(movie) {
                             JSONArray crew = people_in_the_movie.getJSONArray("crew");
                             for (int i = 0; i < crew.length(); i++) {
-                                if ("Directing".equals(((JSONObject) crew.get(i)).getString("department"))) {
+                                if ("Directing".equals(((JSONObject) crew.get(i)).getString("department")) &&
+                                        "Director".equals(((JSONObject) crew.get(i)).getString("job"))) {
                                     if (directors_temp.length() != 0)
                                         directors_temp += ", ";
                                     directors_temp += ((JSONObject) crew.get(i)).getString("name");
