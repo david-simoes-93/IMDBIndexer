@@ -514,9 +514,9 @@ public class AddMenu extends VBox {
                         movieTitleField.setText(obj.getString(title_field));
 
                         if (obj.getString(title_field).toLowerCase().startsWith("the ")) {
-                            movieOrderTitleField.setText(obj.getString(title_field).substring(4).toLowerCase());
+                            movieOrderTitleField.setText(obj.getString(title_field).substring(4).toLowerCase().replaceAll("[^a-z0-9 ]", ""));
                         } else {
-                            movieOrderTitleField.setText(obj.getString(title_field).toLowerCase());
+                            movieOrderTitleField.setText(obj.getString(title_field).toLowerCase().replaceAll("[^a-z0-9 ]", ""));
                         }
 
                         if(movie)
