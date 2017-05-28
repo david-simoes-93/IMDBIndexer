@@ -548,7 +548,7 @@ public class AddMenu extends VBox {
         for(int i=0; i<5 && (!obj_type.has("movie_results") || !obj_type.has("tv_results")); i++){
             try {
                 System.out.println("Got locked for spamming 1st @ "+id+". Waiting 1 second.");
-                Thread.sleep(1000);
+                Thread.sleep(2000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -610,7 +610,7 @@ public class AddMenu extends VBox {
             for(int i=0; i<5 && !obj.has(title_field); i++){
                 try {
                     System.out.println("Got locked for spamming  2nd @ "+id+". Waiting 1 second.");
-                    Thread.sleep(1000);
+                    Thread.sleep(2000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -729,11 +729,13 @@ public class AddMenu extends VBox {
 
             // if poster messed up, we use notFound.jpg
             if (!obj.has("poster_path") || obj.isNull("poster_path") || !Consumer.getImage("http://image.tmdb.org/t/p/w342" + obj.getString("poster_path"))) {
-                try {
-                    Files.copy(Paths.get(new File("").getAbsolutePath() + File.separator + "notFound.jpg"),
-                            Paths.get(new File("").getAbsolutePath() + File.separator + "temp.temp"), REPLACE_EXISTING);
-                } catch (IOException ex) {
-                    ex.printStackTrace();
+                if(updateGui) {
+                    try {
+                        Files.copy(Paths.get(new File("").getAbsolutePath() + File.separator + "notFound.jpg"),
+                                Paths.get(new File("").getAbsolutePath() + File.separator + "temp.temp"), REPLACE_EXISTING);
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
                 }
             }
 
