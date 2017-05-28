@@ -5,9 +5,6 @@
  */
 package movieindexer;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.Scanner;
 import javafx.event.EventHandler;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
@@ -27,8 +24,11 @@ import javafx.stage.Screen;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.Scanner;
+
 /**
- *
  * @author asus
  */
 public class ImdbList extends Tab {
@@ -38,12 +38,12 @@ public class ImdbList extends Tab {
     TabPane parent;
     AddMenu addMenuTab;
     String jsonName;
-    
+
     public ImdbList(TabPane t, AddMenu am, String name) {
         super(name);
         this.parent = t;
         this.addMenuTab = am;
-        this.jsonName=name;
+        this.jsonName = name;
 
         this.flow = new FlowPane();
         flow.setVgap(4);
@@ -58,7 +58,7 @@ public class ImdbList extends Tab {
         JSONArray list;
 
         try (Scanner fin = new Scanner(new File(jsonName + ".json")).useDelimiter("\\Z")) {
-            System.out.println("Reading "+name);
+            System.out.println("Reading " + name);
             String content = fin.next();
             //System.out.println("Reading "+name+": "+content);
             list = new JSONObject(content).getJSONArray("movies");
@@ -82,7 +82,7 @@ public class ImdbList extends Tab {
             }
         } catch (FileNotFoundException ex) {
             System.out.println(name + ".json file not found. Starting empty ImdbList");
-            System.out.println("\t"+ex.getMessage());
+            System.out.println("\t" + ex.getMessage());
         } catch (Exception ex) {
             ex.printStackTrace();
         }

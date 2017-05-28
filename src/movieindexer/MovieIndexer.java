@@ -1,9 +1,5 @@
 package movieindexer;
 
-import java.io.File;
-import java.lang.reflect.Field;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.application.Preloader;
@@ -16,9 +12,12 @@ import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
-import javafx.geometry.*;
-import javafx.scene.*;
-import javafx.scene.control.*;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
@@ -33,6 +32,11 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.io.File;
+import java.lang.reflect.Field;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
 
 public class MovieIndexer extends Application {
 
@@ -112,11 +116,84 @@ public class MovieIndexer extends Application {
         hbButtons.setPadding(new Insets(2));
 
         Button scrapeBtn = new Button();
-        scrapeBtn.setDisable(true);
+        //scrapeBtn.setDisable(true);
         scrapeBtn.setText("Update All");
         scrapeBtn.setOnAction(new EventHandler<ActionEvent>() {
             public void handle(ActionEvent event) {
-                System.out.println("Scrape button pressed.");
+                scrapeBtn.setDisable(true);
+
+
+
+                final boolean [] gotCancelled = {false};
+                ProgressForm pForm = new ProgressForm(gotCancelled);
+
+                Task<Void> task = new Task<Void>() {
+
+
+                    @Override
+                    public Void call() throws InterruptedException {
+                        ImdbList tab = (ImdbList) tabs.getSelectionModel().getSelectedItem();
+                        String fName = tab.jsonName;
+                        JSONArray list = JsonManager.readJson(fName);
+
+                        String[] errors = {""};
+                        int[] error_count = {0};
+                        int[] i = {0};
+                        for (i[0]=0; i[0] < list.length() && !gotCancelled[0]; i[0]++) {
+                            try {
+                                String[] movieInfo = am.getInfoFromMovieDB(list.getJSONObject(i[0]).getString("id"), false);
+                                if (movieInfo[7] == null) throw new Exception("Got null reading!");
+                                movieInfo[6] = list.getJSONObject(i[0]).getString("orderTitle").toLowerCase().replaceAll("[^a-z0-9 ]", "");
+                                System.out.println("Updating " + movieInfo[0]);
+                                File photo = new File(movieInfo[7] + ".jpg");
+                                File newPhoto = new File("temp.temp");
+                                if (newPhoto.exists()) {
+                                    if (photo.exists())
+                                        photo.delete();
+                                    newPhoto.renameTo(photo);
+                                }
+                                Platform.runLater(() -> {
+                                    tab.addMovie(true, movieInfo);
+                                });
+                            } catch (Exception ex) {
+                                errors[0] += list.getJSONObject(i[0]).getString("id") + " " + list.getJSONObject(i[0]).getString("title") + " " + ex.getMessage() + '\n';
+                                error_count[0]++;
+                                ex.printStackTrace();
+                            }
+                            Platform.runLater(() -> {
+                                pForm.label.setText("Updated " + i[0] + "/" + list.length() + "\n"+error_count[0]+" errors.");
+                                updateProgress(i[0], list.length());
+                            });
+                        }
+                        Platform.runLater(() -> {
+                            updateProgress(list.length(), list.length());
+                        });
+
+                        System.out.println("Updated " + i[0] + "/" + list.length() + "\n"+error_count[0]+" errors on:\n" + errors[0]);
+                        return null;
+                    }
+                };
+
+                // binds progress of progress bars to progress of task:
+                pForm.activateProgressBar(task);
+
+                // in real life this method would get the result of the task
+                // and update the UI based on its value:
+
+
+                task.setOnSucceeded(event2 -> {
+                    pForm.getDialogStage().close();
+                    scrapeBtn.setDisable(false);
+                });
+
+                scrapeBtn.setDisable(true);
+                pForm.getDialogStage().show();
+
+                Thread thread = new Thread(task);
+                thread.start();
+                //--
+
+                //System.out.println("Updated " + (list.length() - error_count) + "/" + list.length() + "\nErrors on:\n" + errors);
             }
         });
         hbButtons.getChildren().add(scrapeBtn);
@@ -124,15 +201,15 @@ public class MovieIndexer extends Application {
         // bottom search field
         searchField = new TextField();
         searchField.setOnKeyPressed(new EventHandler<KeyEvent>() {
-            @Override
-            public void handle(KeyEvent keyEvent) {
-                if (keyEvent.getCode() != KeyCode.ENTER) {
-                    return;
-                }
-                filterButton();
-            }
+                                        @Override
+                                        public void handle(KeyEvent keyEvent) {
+                                            if (keyEvent.getCode() != KeyCode.ENTER) {
+                                                return;
+                                            }
+                                            filterButton();
+                                        }
 
-        }
+                                    }
         );
         hbButtons.getChildren().add(searchField);
         HBox.setHgrow(searchField, Priority.ALWAYS);
@@ -183,12 +260,13 @@ public class MovieIndexer extends Application {
                             tabs.getTabs().add(addTab);
                             primaryStage.show();
                             notifyPreloader(new Preloader.StateChangeNotification(Type.BEFORE_START));
-                            
+
                         }
                     });
                 }
             }
-        });;
+        });
+        ;
 
     }
 
