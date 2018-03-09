@@ -635,9 +635,13 @@ public class AddMenu extends VBox {
                 }
             }
 
+            //System.out.println("wat2");
+
             String movieYearField2 = "?";
             if (obj.has("release_date") && !obj.isNull("release_date") && movie) {
-                movieYearField2 = (obj.getString("release_date").replaceAll("\\D+", "").substring(0, 4));
+                movieYearField2 = obj.getString("release_date").replaceAll("\\D+", "");
+                if (movieYearField2.length()>=4)
+                    movieYearField2 = movieYearField2.substring(0, 4);
             } else if (obj.has("first_air_date") && !obj.isNull("first_air_date") && !movie) {
                 movieYearField2 = obj.getString("first_air_date").replaceAll("\\D+", "").substring(0, 4);
             } else if (obj.has("seasons") && obj.getJSONArray("seasons").length() > 0 &&
@@ -649,12 +653,16 @@ public class AddMenu extends VBox {
                 movieYearField2 += "-" + obj.getString("last_air_date").replaceAll("\\D+", "").substring(0, 4);
             }
 
+            //System.out.println("wat3");
+
             String movieScoreArea2;
-            if (!obj.has("vote_average")) {
+            if (!obj.has("vote_average") ||  !obj.isNull("vote_average")) {
                 movieScoreArea2 = ("N/A\n");
             } else {
                 movieScoreArea2 = (obj.getDouble("vote_average") + "/10\n");
             }
+
+            //System.out.println("wat4");
 
             String genre_temp = "";
             for (Object genre : obj.getJSONArray("genres")) {
@@ -662,9 +670,13 @@ public class AddMenu extends VBox {
             }
             String movieGenreArea2 = (genre_temp);
 
+            //System.out.println("wat5");
+
             String moviePlotArea2 = "";
-            if (obj.has("overview"))
+            if (obj.has("overview") && !obj.isNull("overview"))
                 moviePlotArea2 = (obj.getString("overview"));
+
+            //System.out.println("wat6");
 
             JSONObject people_in_the_movie = obj.getJSONObject("credits");
             JSONArray cast = people_in_the_movie.getJSONArray("cast");
@@ -674,6 +686,8 @@ public class AddMenu extends VBox {
                 actors_temp += ((JSONObject) cast.get(i)).getString("name") + "\n";
             }
             String movieActorsArea2 = (actors_temp);
+
+            //System.out.println("wat7");
 
             String directors_temp = "";
             if (movie) {
